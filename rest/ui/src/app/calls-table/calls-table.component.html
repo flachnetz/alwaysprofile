@@ -1,0 +1,31 @@
+<div class="table-wrapper">
+  <table mat-table [dataSource]="dataSource$|async" class="mat-elevation-z8">
+
+    <ng-container matColumnDef="methodName">
+      <th mat-header-cell *matHeaderCellDef> Name</th>
+      <td mat-cell *matCellDef="let call"> {{ call.name }} </td>
+    </ng-container>
+
+    <ng-container matColumnDef="selfTimeFraction">
+      <th mat-header-cell *matHeaderCellDef> Name</th>
+      <td mat-cell *matCellDef="let call">
+        <mat-progress-bar [value]="100*call.selfTimeFraction"></mat-progress-bar>
+      </td>
+    </ng-container>
+
+    <ng-container matColumnDef="selfTime">
+      <th mat-header-cell *matHeaderCellDef> Name</th>
+      <td mat-cell *matCellDef="let call"> {{ call.totalTime }} </td>
+    </ng-container>
+
+    <ng-container matColumnDef="totalTime">
+      <th mat-header-cell *matHeaderCellDef> Name</th>
+      <td mat-cell *matCellDef="let call"> {{ call.selfTime }} </td>
+    </ng-container>
+
+    <tr mat-header-row *matHeaderRowDef="columnsToDisplay"></tr>
+    <tr mat-row *matRowDef="let row; columns: columnsToDisplay"></tr>
+
+  </table>
+  <mat-paginator #paginator [showFirstLastButtons]="true" [pageSizeOptions]="[10,20,50]"></mat-paginator>
+</div>

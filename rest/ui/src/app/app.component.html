@@ -1,0 +1,17 @@
+<mat-toolbar class="mat-elevation-z4" color="primary" class="toolbar">
+
+  <div class="flex-spacer"></div>
+
+  <mat-select
+    class="service-select"
+    placeholder="Select service"
+    (selectionChange)="onServiceSelectChange($event)"
+    [value]="serviceId$|async">
+
+    <mat-option *ngFor="let service of availableServices$|async" [value]="service">
+      {{ service }}
+    </mat-option>
+  </mat-select>
+</mat-toolbar>
+
+<router-outlet></router-outlet>

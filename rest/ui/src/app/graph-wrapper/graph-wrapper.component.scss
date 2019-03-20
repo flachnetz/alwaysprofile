@@ -1,0 +1,16 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.side-panel {
+  display: flex;
+  flex-direction: column;
+  padding: 0.66em 0 0.66em 0.66em;
+}
+
+.graph-container {
+  flex-grow: 1;
+  padding: 0.66em;
+}

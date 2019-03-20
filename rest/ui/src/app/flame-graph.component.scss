@@ -1,0 +1,20 @@
+.wrapper {
+  position: relative;
+}
+
+.span-container {
+  width: 100%;
+  overflow: hidden;
+  height: 30em;
+}
+
+.tooltip {
+  display: none;
+  position: absolute;
+  padding: 0.66em;
+  background: rgba(0, 0, 0, 0.75);
+  border-radius: 0.33em;
+
+  color: white;
+  z-index: 1;
+}

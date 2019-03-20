@@ -1,0 +1,14 @@
+.toolbar {
+  display: flex;
+  flex-direction: row;
+
+  font-size: 0.8em;
+}
+
+.flex-spacer {
+  flex-grow: 1;
+}
+
+.service-select {
+  max-width: 10em;
+}

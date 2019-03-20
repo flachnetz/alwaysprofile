@@ -1,0 +1,9 @@
+<div class="side-panel">
+  <ViewConfig></ViewConfig>
+</div>
+
+<div class="graph-container">
+  <ng-container *recreate="flameGraph$|async as flameGraph">
+    <FlameGraph [flameGraph]="flameGraph"></FlameGraph>
+  </ng-container>
+</div>
