@@ -1,11 +1,11 @@
 import {Component} from '@angular/core';
-import {ApiService} from './api-service.service';
 import {MatSelectChange} from '@angular/material';
-import {ActivationStart, Router} from "@angular/router";
+import {Router} from "@angular/router";
 import {Observable} from "rxjs";
-import {StateService} from "./state.service";
-import {distinctUntilChanged, map, takeUntil} from "rxjs/operators";
-import {filter} from "rxjs/internal/operators/filter";
+import {Store} from "@ngrx/store";
+import {AppState} from "./state/app-state";
+import {LoadServices} from "./state/services.state";
+import * as fromServices from "./state/services.selectors";
 
 @Component({
   selector: 'app-root',
@@ -13,19 +13,14 @@ import {filter} from "rxjs/internal/operators/filter";
   styleUrls: ['./app.component.scss'],
 })
 export class AppComponent {
-  public readonly serviceId$: Observable<string | null>;
-  public readonly availableServices$: Observable<string[]>;
+  public readonly serviceId$: Observable<string | null> = this.store.select(fromServices.getSelectedServiceId);
+  public readonly availableServices$: Observable<string[]> = this.store.select(fromServices.listAll);
 
   constructor(
-    private readonly apiService: ApiService,
-    private readonly stateService: StateService,
+    private readonly store: Store<AppState>,
     private readonly router: Router) {
 
-    this.serviceId$ = stateService.projection(
-      state => state.serviceId);
-
-    this.availableServices$ = stateService.projection(
-      state => [...state.availableServices].sort());
+    store.dispatch(new LoadServices());
   }
 
   public onServiceSelectChange(event: MatSelectChange) {

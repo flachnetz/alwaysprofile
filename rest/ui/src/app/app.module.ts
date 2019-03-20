@@ -4,12 +4,17 @@ import {NgModule} from '@angular/core';
 import {AppRoutingModule} from './app-routing.module';
 import {AppComponent} from './app.component';
 import {
-  MatCardModule, MatCheckboxModule,
-  MatFormFieldModule, MatPaginatorModule, MatProgressBarModule,
+  MatCardModule,
+  MatCheckboxModule,
+  MatFormFieldModule,
+  MatPaginatorModule,
+  MatProgressBarModule,
   MatProgressSpinnerModule,
   MatRadioModule,
-  MatSelectModule, MatTableModule,
-  MatToolbarModule, MatTooltipModule
+  MatSelectModule,
+  MatTableModule,
+  MatToolbarModule,
+  MatTooltipModule
 } from '@angular/material';
 import {ApiService} from './api-service.service';
 import {HttpClientModule} from '@angular/common/http';
@@ -20,8 +25,14 @@ import {IntroComponent} from './intro/intro.component';
 import {ViewConfigComponent} from './view-config/view-config.component';
 import {GraphWrapperComponent} from './graph-wrapper/graph-wrapper.component';
 import {RecreateDirective} from "./recreate.directive";
-import { CallsTableComponent } from './calls-table/calls-table.component';
-import { StackLoaderComponent } from './stack-loader/stack-loader.component';
+import {CallsTableComponent} from './calls-table/calls-table.component';
+import {StackLoaderComponent} from './stack-loader/stack-loader.component';
+import {StoreModule} from "@ngrx/store";
+import {serviceReducer} from "./state/services.state";
+import {EffectsModule} from "@ngrx/effects";
+import {ServicesEffects} from "./state/services.effects";
+import {StoreDevtoolsModule} from "@ngrx/store-devtools";
+import {environment} from "../environments/environment";
 
 @NgModule({
   declarations: [
@@ -40,6 +51,22 @@ import { StackLoaderComponent } from './stack-loader/stack-loader.component';
   imports: [
     AppRoutingModule,
     HttpClientModule,
+
+    StoreModule.forRoot({
+      service: serviceReducer as any,
+    }),
+
+    EffectsModule.forRoot([
+      ServicesEffects,
+    ]),
+
+    StoreDevtoolsModule.instrument({
+      // Retains last 25 states
+      maxAge: 25,
+
+      // Restrict extension to log-only mode
+      logOnly: environment.production,
+    }),
 
     MatToolbarModule,
     MatFormFieldModule,

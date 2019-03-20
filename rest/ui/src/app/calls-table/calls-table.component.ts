@@ -1,9 +1,12 @@
 import {Component, ViewChild} from '@angular/core';
 import {MatPaginator, MatTableDataSource} from "@angular/material";
 import {doTimed, Duration, IStack} from "../api-service.service";
-import {StateService} from "../state.service";
-import {filter, map} from "rxjs/operators";
-import {Observable} from "rxjs";
+import {createSelector, Store} from "@ngrx/store";
+
+import * as fromService from '../state/services.selectors'
+import {AppState} from "../state/app-state";
+import {DataSource} from "@angular/cdk/table";
+import {map} from "rxjs/operators";
 
 @Component({
   selector: 'app-calls-table',
@@ -12,27 +15,26 @@ import {Observable} from "rxjs";
 })
 export class CallsTableComponent {
   public readonly columnsToDisplay = ["selfTimeFraction", "selfTime", "totalTime", 'methodName'];
-  public readonly dataSource$: Observable<MatTableDataSource<Call>>;
+
+  public readonly dataSource$ = this.store.select(stacksAsDataSource).pipe(map(calls => this.createDataSource(calls)));
 
   @ViewChild("paginator")
   public paginator!: MatPaginator;
 
   constructor(
-    private readonly stateService: StateService) {
-
-    this.dataSource$ = stateService.projection(state => state.stacks)
-      .pipe(
-        filter(stacks => stacks != null),
-        map(stacks => doTimed("Aggregate calls", () => calculateCalls(stacks!))),
-        map(calls => this.toDataStore(calls)));
+    private readonly store: Store<AppState>) {
   }
 
-  private toDataStore(calls: Call[]) {
-    const dataStore = new MatTableDataSource(calls);
-    dataStore.paginator = this.paginator;
-    return dataStore;
+  private createDataSource(calls: Call[]): DataSource<Call> {
+    const dataSource = new MatTableDataSource(calls);
+    dataSource.paginator = this.paginator;
+    return dataSource;
   }
 }
+
+const stacksAsDataSource = createSelector(
+  fromService.selectStacks,
+  stacks => doTimed("Aggregate calls", () => calculateCalls(stacks)));
 
 interface ICall {
   name: string;
