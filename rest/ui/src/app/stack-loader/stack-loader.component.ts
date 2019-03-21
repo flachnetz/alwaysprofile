@@ -1,11 +1,11 @@
 import {Component, OnDestroy} from '@angular/core';
-import {ActivatedRoute} from "@angular/router";
-import {Observable, ReplaySubject} from "rxjs";
-import {Store} from "@ngrx/store";
-import {AppState} from "../state/app-state";
-import {LoadService} from "../state/services.state";
-import * as fromService from "../state/services.selectors";
-import {distinctUntilChanged, map, takeUntil} from "rxjs/operators";
+import {ActivatedRoute} from '@angular/router';
+import {ReplaySubject} from 'rxjs';
+import {Store} from '@ngrx/store';
+import {AppState} from '../state/app-state';
+import * as fromStacks from '../state/stacks.selectors';
+import {distinctUntilChanged, map, takeUntil} from 'rxjs/operators';
+import {LoadStacks} from '../state/stacks.state';
 
 @Component({
   selector: 'app-stack-loader',
@@ -15,7 +15,7 @@ import {distinctUntilChanged, map, takeUntil} from "rxjs/operators";
 export class StackLoaderComponent implements OnDestroy {
   private readonly lifecycle$ = new ReplaySubject(1);
 
-  public readonly loading$: Observable<boolean> = this.store.select(fromService.isLoading);
+  public readonly loading$ = this.store.select(fromStacks.isLoading);
 
   constructor(
     private readonly store: Store<AppState>,
@@ -26,7 +26,7 @@ export class StackLoaderComponent implements OnDestroy {
         map(params => params.get("serviceId") as string),
         distinctUntilChanged(),
         takeUntil(this.lifecycle$))
-      .subscribe(serviceId => this.store.dispatch(new LoadService(serviceId)));
+      .subscribe(serviceId => this.store.dispatch(new LoadStacks(serviceId)));
   }
 
   public ngOnDestroy(): void {

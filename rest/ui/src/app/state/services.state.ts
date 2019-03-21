@@ -1,101 +1,47 @@
-import {Action} from "@ngrx/store";
-import {IStack} from "../api-service.service";
+import {Action} from '@ngrx/store';
 
-export enum ActionTypes {
+export enum ServicesActionTypes {
   LoadServices = 'LoadServices',
-  Services = "Services",
-
-  LoadService = "LoadService",
-  Service = "Service",
-
-  Reset = "Reset",
+  UpdateServices = 'UpdateServices',
 }
 
 export class LoadServices implements Action {
-  readonly type = ActionTypes.LoadServices;
+  readonly type = ServicesActionTypes.LoadServices;
 }
 
-export class Services implements Action {
-  readonly type = ActionTypes.Services;
+export class UpdateServices implements Action {
+  readonly type = ServicesActionTypes.UpdateServices;
 
-  constructor(public readonly services: Set<string>) {
+  constructor(public readonly services: string[]) {
+  }
+
+  static forOne(serviceId: string): UpdateServices {
+    return new UpdateServices([serviceId]);
   }
 }
 
-export class LoadService implements Action {
-  readonly type = ActionTypes.LoadService;
-
-  constructor(public readonly serviceId: string) {
-  }
-}
-
-export class Service implements Action {
-  readonly type = ActionTypes.Service;
-
-  constructor(
-    public readonly serviceId: string,
-    public readonly stacks: IStack[]) {
-  }
-}
-
-
-export class Reset implements Action {
-  readonly type = ActionTypes.Reset;
-}
-
-export type ActionsUnion = LoadService | Service | LoadServices | Services | Reset;
+export type ServicesActions = LoadServices | UpdateServices;
 
 
 export interface ServicesState {
-  services: Set<string>;
-  serviceId: string | null;
-
-  stacks: IStack[];
-  loading: boolean;
+  services: string[];
 }
 
 const initialState: ServicesState = {
-  services: new Set<string>(),
-  serviceId: null,
-  stacks: [],
-  loading: true,
+  services: [],
 };
 
-export function serviceReducer(state = initialState, action: ActionsUnion): ServicesState {
+export function servicesReducer(state = initialState, action: ServicesActions): ServicesState {
+  // noinspection JSRedundantSwitchStatement
   switch (action.type) {
-    case ActionTypes.LoadService:
+    case ServicesActionTypes.UpdateServices:
+      const servicesSet = new Set([...action.services, ...state.services]);
       return {
         ...state,
-        stacks: [],
-        loading: true,
-        serviceId: action.serviceId,
-        services: new Set([action.serviceId, ...state.services]),
-      };
-
-    case ActionTypes.Service:
-      return {
-        ...state,
-        serviceId: action.serviceId,
-        services: new Set([action.serviceId, ...state.services]),
-        stacks: action.stacks,
-        loading: false,
-      };
-
-    case ActionTypes.Services:
-      return {
-        ...state,
-        services: new Set([...action.services, ...state.services]),
-      };
-
-    case ActionTypes.Reset:
-      return {
-        ...state,
-        stacks: [],
-        loading: false,
-        serviceId: null
+        services: [...servicesSet].sort(),
       };
 
     default:
       return state;
   }
-};
+}

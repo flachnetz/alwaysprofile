@@ -1,18 +1,8 @@
-import {createFeatureSelector, createSelector} from "@ngrx/store";
-import {AppState} from "./app-state";
-import {ServicesState} from "./services.state";
+import {createFeatureSelector, createSelector} from '@ngrx/store';
+import {AppState} from './app-state';
+import {ServicesState} from './services.state';
 
-const selectFeature = createFeatureSelector<AppState, ServicesState>("service");
+const selectFeature = createFeatureSelector<AppState, ServicesState>("services");
 
-
-export const isLoading = createSelector(
-  selectFeature, state => state.loading);
-
-export const selectStacks = createSelector(
-  selectFeature, state => state.stacks);
-
-export const getSelectedServiceId = createSelector(
-  selectFeature, state => state.serviceId);
-
-export const listAll = createSelector(
-  selectFeature, state => [...state.services].sort());
+export const all = createSelector(
+  selectFeature, state => state.services);

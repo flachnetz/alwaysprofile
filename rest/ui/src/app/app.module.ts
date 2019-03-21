@@ -14,25 +14,25 @@ import {
   MatSelectModule,
   MatTableModule,
   MatToolbarModule,
-  MatTooltipModule
+  MatTooltipModule,
 } from '@angular/material';
 import {ApiService} from './api-service.service';
 import {HttpClientModule} from '@angular/common/http';
 import {BrowserAnimationsModule} from '@angular/platform-browser/animations';
 import {FlameGraphComponent} from './flame-graph.component';
-import {StateService} from "./state.service";
 import {IntroComponent} from './intro/intro.component';
 import {ViewConfigComponent} from './view-config/view-config.component';
 import {GraphWrapperComponent} from './graph-wrapper/graph-wrapper.component';
-import {RecreateDirective} from "./recreate.directive";
+import {RecreateDirective} from './recreate.directive';
 import {CallsTableComponent} from './calls-table/calls-table.component';
 import {StackLoaderComponent} from './stack-loader/stack-loader.component';
-import {StoreModule} from "@ngrx/store";
-import {serviceReducer} from "./state/services.state";
-import {EffectsModule} from "@ngrx/effects";
-import {ServicesEffects} from "./state/services.effects";
-import {StoreDevtoolsModule} from "@ngrx/store-devtools";
-import {environment} from "../environments/environment";
+import {StoreModule} from '@ngrx/store';
+import {servicesReducer} from './state/services.state';
+import {EffectsModule} from '@ngrx/effects';
+import {Effects} from './state/effects.service';
+import {StoreDevtoolsModule} from '@ngrx/store-devtools';
+import {environment} from '../environments/environment';
+import {stacksReducer} from './state/stacks.state';
 
 @NgModule({
   declarations: [
@@ -53,11 +53,12 @@ import {environment} from "../environments/environment";
     HttpClientModule,
 
     StoreModule.forRoot({
-      service: serviceReducer as any,
+      stacks: stacksReducer as any,
+      services: servicesReducer as any,
     }),
 
     EffectsModule.forRoot([
-      ServicesEffects,
+      Effects,
     ]),
 
     StoreDevtoolsModule.instrument({
@@ -85,7 +86,6 @@ import {environment} from "../environments/environment";
   ],
   providers: [
     ApiService,
-    StateService,
   ],
   bootstrap: [AppComponent],
 })

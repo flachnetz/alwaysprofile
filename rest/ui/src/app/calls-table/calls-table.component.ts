@@ -1,12 +1,14 @@
 import {Component, ViewChild} from '@angular/core';
-import {MatPaginator, MatTableDataSource} from "@angular/material";
-import {doTimed, Duration, IStack} from "../api-service.service";
-import {createSelector, Store} from "@ngrx/store";
+import {MatPaginator, MatTableDataSource} from '@angular/material';
+import {createSelector, Store} from '@ngrx/store';
 
-import * as fromService from '../state/services.selectors'
-import {AppState} from "../state/app-state";
-import {DataSource} from "@angular/cdk/table";
-import {map} from "rxjs/operators";
+import * as fromStacks from '../state/stacks.selectors';
+import {AppState} from '../state/app-state';
+import {DataSource} from '@angular/cdk/table';
+import {map} from 'rxjs/operators';
+import {doTimed} from '../api-service.service';
+import {Duration} from '../domain/duration';
+import {Stack} from '../domain/stack';
 
 @Component({
   selector: 'app-calls-table',
@@ -33,8 +35,8 @@ export class CallsTableComponent {
 }
 
 const stacksAsDataSource = createSelector(
-  fromService.selectStacks,
-  stacks => doTimed("Aggregate calls", () => calculateCalls(stacks)));
+  fromStacks.selectStacks,
+  stacks => doTimed("Aggregate calls", () => calculateCalls(stacks.merged)));
 
 interface ICall {
   name: string;
@@ -59,14 +61,14 @@ class Call {
 }
 
 
-function calculateCalls(stacks: IStack[]): Call[] {
-  const calls: { [key: string]: ICall } = {};
+function calculateCalls(stacks: Stack[]): Call[] {
+  const calls: { [key: number]: ICall } = {};
 
   for (const stack of stacks) {
     for (const method of stack.methods) {
-      let call = calls[method.key];
+      let call = calls[method.id];
       if (call == null) {
-        calls[method.key] = call = {
+        calls[method.id] = call = {
           name: method.toString(),
           selfTime: Duration.ZERO,
           totalTime: Duration.ZERO,
@@ -78,7 +80,7 @@ function calculateCalls(stacks: IStack[]): Call[] {
 
     // add top of the stack to self time
     const method = stack.methods[stack.methods.length - 1];
-    calls[method.key].selfTime = calls[method.key].selfTime.plus(stack.duration);
+    calls[method.id].selfTime = calls[method.id].selfTime.plus(stack.duration);
   }
 
   return Object.values(calls)

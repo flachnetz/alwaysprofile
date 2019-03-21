@@ -1,7 +1,8 @@
 import {AfterViewInit, Component, ElementRef, HostListener, Input, NgZone, ViewChild} from '@angular/core';
-import {BehaviorSubject} from "rxjs";
-import {GraphNode} from "./state.service";
-import {doTimed, Duration} from "./api-service.service";
+import {BehaviorSubject} from 'rxjs';
+import {GraphNode} from './domain/graph-node';
+import {Duration} from './domain/duration';
+import {doTimed} from './api-service.service';
 
 @Component({
   selector: 'FlameGraph',
@@ -118,7 +119,7 @@ class Layouter {
 
       // expand all parent nodes of an expanded node
       if (state.selected) {
-        const path = this.root.pathTo(state.selected);
+        const path = this.root.pathTo(node => node === state.selected);
         if (path == null)
           throw new Error(`No path found to ${state.selected}`);
 

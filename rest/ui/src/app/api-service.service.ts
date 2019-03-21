@@ -2,6 +2,7 @@ import {Injectable} from '@angular/core';
 import {HttpClient} from '@angular/common/http';
 import {parseGoMethod} from './domain/method';
 import {Stack} from './domain/stack';
+import {Duration} from './domain/duration';
 
 @Injectable()
 export class ApiService {
@@ -22,7 +23,7 @@ export class ApiService {
     return response.map(stack => {
       return new Stack(
         stack.methods.map(method => parseGoMethod(method)),
-        Duration.ofMillis(stack.durationInMillis));
+        new Duration(stack.durationInMillis));
     });
   }
 
@@ -32,20 +33,10 @@ export interface IServices {
   services: string[];
 }
 
-export interface Stacks {
-
-}
-
-export interface IStack {
-  methods: Method[];
-  duration: Duration;
-}
-
 interface IStackResponse {
   methods: string[];
   durationInMillis: number;
 }
-
 
 export function doTimed<T>(action: string, fn: () => T): T {
   console.time(action);

@@ -1,7 +1,7 @@
 import {Component} from '@angular/core';
-import {GraphConfig, GroupingMode, StateService} from "../state.service";
-import {Observable} from "rxjs";
-import {Router} from "@angular/router";
+import {EMPTY, Observable} from 'rxjs';
+import {Router} from '@angular/router';
+import {GraphConfig} from '../domain/graph-node';
 
 @Component({
   selector: 'ViewConfig',
@@ -9,26 +9,18 @@ import {Router} from "@angular/router";
   styleUrls: ['./view-config.component.scss']
 })
 export class ViewConfigComponent {
-  public graphConfig$: Observable<GraphConfig>;
+  public graphConfig$: Observable<GraphConfig> = EMPTY;
 
   constructor(
-    private readonly router: Router,
-    private readonly stateService: StateService) {
+    private readonly router: Router) {
 
-    this.graphConfig$ = stateService.projection(state => state.graphConfig);
-  }
-
-  public onGroupingModeChanged(value: GroupingMode) {
-    this.publish({
-      ...this.stateService.state.graphConfig,
-      groupingMode: value,
-    })
+    // this.graphConfig$ = stateService.projection(state => state.graphConfig);
   }
 
   onCollapseRecursiveCallsChanged(value: boolean) {
     this.publish({
-      ...this.stateService.state.graphConfig,
       collapseRecursiveCalls: value,
+      collapseRuntimeCalls: false,
     })
   }
 

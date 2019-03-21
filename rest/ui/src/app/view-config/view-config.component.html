@@ -2,15 +2,15 @@
   <mat-card-title>Config</mat-card-title>
 
   <mat-card-content class="config-content">
-    <mat-radio-group [value]="graphConfig.groupingMode" (change)="onGroupingModeChanged($event.value)">
-      <mat-radio-button name="grouping" value="package">package</mat-radio-button>
-      <mat-radio-button name="grouping" value="type">type</mat-radio-button>
-      <mat-radio-button name="grouping" value="method">method</mat-radio-button>
-    </mat-radio-group>
 
     <mat-checkbox [checked]="graphConfig.collapseRecursiveCalls"
                   (change)="onCollapseRecursiveCallsChanged($event.checked)">
       Collapse recursive calls
+    </mat-checkbox>
+
+    <mat-checkbox [checked]="graphConfig.collapseRuntimeCalls"
+                  (change)="onCollapseRecursiveCallsChanged($event.checked)">
+      Collapse runtime calls
     </mat-checkbox>
   </mat-card-content>
 </mat-card>
