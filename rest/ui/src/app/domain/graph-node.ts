@@ -32,14 +32,22 @@ export class GraphNode {
     return this.method.toString();
   }
 
-  public byId(id: number): GraphNode|null {
+  public get childrenTime(): Duration {
+    return this.children.reduce((acc, child) => acc.plus(child.value), Duration.ZERO);
+  }
+
+  public get selfTime(): Duration {
+    return this.value.minus(this.childrenTime);
+  }
+
+  public byId(id: number): GraphNode | null {
     return this.find(node => node.id === id);
   }
 
   public find(predicate: (node: GraphNode) => boolean): GraphNode | null {
     const path = this.pathTo(predicate);
-    if(path != null)
-      return path[path.length-1];
+    if (path != null)
+      return path[path.length - 1];
 
     return null;
   }
@@ -60,7 +68,7 @@ export class GraphNode {
   }
 
   static fromStacks(stacks: Stack[]): GraphNode {
-    return doTimed('Node.fromStacks', () => graphNodeFromStacks(stacks));
+    return doTimed(`Node.fromStacks(${stacks.length})`, () => graphNodeFromStacks(stacks));
   }
 }
 

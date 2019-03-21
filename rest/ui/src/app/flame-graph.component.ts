@@ -1,8 +1,9 @@
 import {AfterViewInit, Component, ElementRef, HostListener, Input, NgZone, ViewChild} from '@angular/core';
 import {BehaviorSubject} from 'rxjs';
 import {GraphNode} from './domain/graph-node';
-import {Duration} from './domain/duration';
 import {doTimed} from './api-service.service';
+import {distinctUntilChanged} from "rxjs/operators";
+import {deepEqual} from "./utils/deep-equal";
 
 @Component({
   selector: 'FlameGraph',
@@ -13,15 +14,18 @@ export class FlameGraphComponent implements AfterViewInit {
   private layouter!: Layouter;
 
   private readonly layoutState$ = new BehaviorSubject<LayoutState>({});
+  private readonly _tooltipContent$ = new BehaviorSubject<TooltipContent | null>(null);
 
   @ViewChild('flameContainer')
-  public flameContainer!: ElementRef;
+  public readonly flameContainer!: ElementRef;
 
   @ViewChild("tooltip")
-  public tooltip!: ElementRef;
+  public readonly tooltip!: ElementRef;
 
   @Input()
-  public flameGraph!: GraphNode;
+  public readonly flameGraph!: GraphNode;
+
+  public readonly tooltipContent$ = this._tooltipContent$.pipe(distinctUntilChanged(deepEqual));
 
   constructor(
     private readonly ngZone: NgZone) {
@@ -63,26 +67,32 @@ export class FlameGraphComponent implements AfterViewInit {
   }
 
   private handleMouseOverEvent(event: MouseEvent) {
-    const tooltip = this.tooltip.nativeElement as HTMLElement;
+    const elTooltip = this.tooltip.nativeElement as HTMLElement;
 
     const node = this.nodeFromEvent(event);
     if (!node) {
-      tooltip.style.display = "none";
+      elTooltip.style.display = "none";
       return;
     }
 
-    const element = this.layouter.elementOf(node);
-    const x = element.offsetLeft + event.offsetX + 8;
-    const y = element.offsetTop + event.offsetY + 8;
+    const elContainer = this.flameContainer.nativeElement as HTMLElement;
 
-    tooltip.style.display = "block";
-    tooltip.style.left = x + "px";
-    tooltip.style.top = y + "px";
+    const elNode = this.layouter.elementOf(node);
+    const x = elNode.offsetLeft + event.offsetX;
+    const y = elNode.offsetTop + event.offsetY;
 
-    const childTime = node.children.reduce((acc, child) => acc.plus(child.value), Duration.ZERO);
-    const selfTime = node.value.minus(childTime);
+    if (x <= elContainer.offsetWidth / 2) {
+      elTooltip.style.left = (x + 8) + "px";
+      elTooltip.style.right = null;
+    } else {
+      elTooltip.style.right = (elContainer.offsetWidth - x + 8) + "px";
+      elTooltip.style.left = null;
+    }
 
-    tooltip.innerText = `${node.title}\ntotal: ${node.value}, self: ${selfTime}`;
+    elTooltip.style.display = "block";
+    elTooltip.style.top = (y + 8) + "px";
+
+    this.ngZone.run(() => this._tooltipContent$.next({node}));
   }
 
   private nodeFromEvent(event: MouseEvent): GraphNode | null {
@@ -138,9 +148,7 @@ class Layouter {
   }
 
   private doLayout(state: InternalLayoutState, node: GraphNode, layout: NodeLayout) {
-    if (layout.level !== 0) {
-      this.applyNodeLayout(state.containerWidth, node, layout);
-    }
+    this.applyNodeLayout(state.containerWidth, node, layout);
 
     const childLevel = layout.level + 1;
 
@@ -215,7 +223,7 @@ class Layouter {
       tStyle.opacity = "1";
     }
 
-    tStyle.top = (layout.level - 1) + "rem";
+    tStyle.top = layout.level + "rem";
     tStyle.left = percentOf(layout.nodeOffset);
 
     if (containerWidth * layout.nodeSize > 35) {
@@ -284,4 +292,8 @@ function injectFlameGraphCSS() {
 
 function percentOf(value: number): string {
   return (100 * value) + "%";
+}
+
+interface TooltipContent {
+  node: GraphNode;
 }
