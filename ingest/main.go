@@ -19,7 +19,7 @@ func main() {
 		HTTP     startup_http.HTTPOptions
 	}
 
-	opts.Postgres.Inputs.Initializer = startup_postgres.DefaultMigration("schema_alwaysprofile")
+	opts.Postgres.Inputs.Initializer = startup_postgres.DefaultMigration("ap_schema")
 
 	startup.MustParseCommandLine(&opts)
 

@@ -122,7 +122,7 @@ func (ingester *Ingester) Ingest(profile Profile) error {
 			row.Items = pq.GenericArray{A: &previousItems}
 
 			err := tx.Get(&row,
-				`SELECT version, items FROM sample WHERE timeslot=$1 AND instance_id=$2`,
+				`SELECT version, items FROM ap_sample WHERE timeslot=$1 AND instance_id=$2`,
 				key.Timeslot, key.InstanceId)
 
 			if err != nil && err != sql.ErrNoRows {
@@ -145,10 +145,10 @@ func (ingester *Ingester) Ingest(profile Profile) error {
 
 			var updated int
 			err = tx.Get(&updated,
-				`INSERT INTO sample (timeslot, instance_id, version, items) VALUES ($1, $2, $3, $4)
+				`INSERT INTO ap_sample (timeslot, instance_id, version, items) VALUES ($1, $2, $3, $4)
 				ON CONFLICT (timeslot, instance_id) DO UPDATE
 				SET version=$3+1, items=EXCLUDED.items
-				WHERE sample.version = $3 RETURNING version`,
+				WHERE ap_sample.version = $3`,
 				key.Timeslot, key.InstanceId, row.Version, pq.Array(items))
 
 			if err == sql.ErrNoRows {
@@ -232,13 +232,13 @@ func (ingester *Ingester) methodId(tx *sqlx.Tx, name string) (int32, error) {
 	}
 
 	// first try to insert
-	_, err := tx.Exec(`INSERT INTO method (name) VALUES ($1) ON CONFLICT DO NOTHING`, name)
+	_, err := tx.Exec(`INSERT INTO ap_method (name) VALUES ($1) ON CONFLICT DO NOTHING`, name)
 	if err != nil {
 		return 0, errors.WithMessage(err, "store method name")
 	}
 
 	// and then select the inserted value
-	if err := tx.Get(&id, "SELECT id FROM method WHERE name=$1", name); err != nil {
+	if err := tx.Get(&id, "SELECT id FROM ap_method WHERE name=$1", name); err != nil {
 		return 0, errors.WithMessage(err, "get id of method")
 	}
 
@@ -269,7 +269,7 @@ func (ingester *Ingester) fillMethodCache(tx *sqlx.Tx) error {
 		Name string `db:"name"`
 	}
 
-	if err := tx.Select(&methods, `SELECT id, name FROM method`); err != nil {
+	if err := tx.Select(&methods, `SELECT id, name FROM ap_method`); err != nil {
 		return errors.WithMessage(err, "query method ids")
 	}
 
@@ -285,7 +285,7 @@ func (ingester *Ingester) fillMethodCache(tx *sqlx.Tx) error {
 func (ingester *Ingester) fillStackCache(tx *sqlx.Tx) error {
 	var stackIds []int64
 
-	if err := tx.Select(&stackIds, `SELECT id FROM stack`); err != nil {
+	if err := tx.Select(&stackIds, `SELECT id FROM ap_stack`); err != nil {
 		return errors.WithMessage(err, "query stack ids")
 	}
 
@@ -314,7 +314,7 @@ func (ingester *Ingester) storeStacks(tx *sqlx.Tx, stacks []Stack) error {
 		return nil
 	}
 
-	stmt, err := tx.Prepare(`INSERT INTO stack (id, methods) VALUES ($1, $2) ON CONFLICT DO NOTHING`)
+	stmt, err := tx.Prepare(`INSERT INTO ap_stack (id, methods) VALUES ($1, $2) ON CONFLICT DO NOTHING`)
 	if err != nil {
 		return errors.WithMessage(err, "prepare insert stack stmt")
 	}
@@ -338,7 +338,7 @@ func (ingester *Ingester) storeStacks(tx *sqlx.Tx, stacks []Stack) error {
 
 func (ingester *Ingester) serviceId(tx *sqlx.Tx, serviceName string) (int32, error) {
 	_, err := tx.Exec(
-		`INSERT INTO service (name) VALUES ($1) ON CONFLICT DO NOTHING`,
+		`INSERT INTO ap_service (name) VALUES ($1) ON CONFLICT DO NOTHING`,
 		serviceName)
 
 	if err != nil {
@@ -346,13 +346,13 @@ func (ingester *Ingester) serviceId(tx *sqlx.Tx, serviceName string) (int32, err
 	}
 
 	var instanceId int32
-	err = tx.Get(&instanceId, "SELECT id FROM service WHERE name=$1", serviceName)
+	err = tx.Get(&instanceId, "SELECT id FROM ap_service WHERE name=$1", serviceName)
 	return instanceId, errors.WithMessage(err, "lookup service")
 }
 
 func (ingester *Ingester) instanceId(tx *sqlx.Tx, serviceId int32, instanceUuid uuid.UUID, tags map[string]string) (int32, error) {
 	_, err := tx.Exec(
-		`INSERT INTO instance (service_id, uuid, tags) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+		`INSERT INTO ap_instance (service_id, uuid, tags) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
 		serviceId, instanceUuid, pqJSON(tags))
 
 	if err != nil {
@@ -360,7 +360,7 @@ func (ingester *Ingester) instanceId(tx *sqlx.Tx, serviceId int32, instanceUuid 
 	}
 
 	var instanceId int32
-	err = tx.Get(&instanceId, "SELECT id FROM instance WHERE uuid=$1", instanceUuid)
+	err = tx.Get(&instanceId, "SELECT id FROM ap_instance WHERE uuid=$1", instanceUuid)
 	return instanceId, errors.WithMessage(err, "lookup instance")
 }
 
