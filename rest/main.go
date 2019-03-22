@@ -93,7 +93,7 @@ func HandlerHistogram(db *sqlx.DB) httprouter.Handle {
 
 func queryServiceNames(ctx context.Context, db *sqlx.DB) ([]string, error) {
 	var names []string
-	err := db.SelectContext(ctx, &names, `SELECT name FROM service ORDER BY name ASC`)
+	err := db.SelectContext(ctx, &names, `SELECT name FROM ap_service ORDER BY name ASC`)
 	return names, errors.WithMessage(err, "list services")
 }
 
@@ -109,10 +109,15 @@ func queryHistogram(ctx context.Context, db *sqlx.DB, serviceName string) (inter
 		const binSize = 60 * time.Second
 
 		return tx.SelectContext(ctx, &histogram, `
-			SELECT instance_id, 1000*min(timeslot)::INT8 as time, sum(duration) as duration, sum(occurrences) as occurrences
-			FROM sample
-			  JOIN instance ON sample.instance_id = instance.id
-				JOIN service ON instance.service_id = service.id
+			SELECT
+				instance_id,
+			       1000*min(timeslot)::INT8 as time,
+			       sum(duration) as duration,
+			       sum(occurrences) as occurrences
+			
+			FROM ap_sample AS sample
+			  JOIN ap_instance AS instance ON sample.instance_id = instance.id
+				JOIN ap_service AS service ON instance.service_id = service.id
 			WHERE service.name = $2
 			GROUP BY instance_id, $1*(timeslot/$1)::INT`,
 
@@ -145,8 +150,8 @@ func queryStack(ctx context.Context, db *sqlx.DB, serviceName string) ([]Stack, 
 		err := tx.SelectContext(ctx, &dbStacks, `
 			    WITH samples_unnest AS (
             SELECT unnest(items) AS item
-            FROM sample
-            WHERE instance_id IN (SELECT id FROM instance WHERE service_id = (SELECT id FROM service WHERE name = $1))
+            FROM ap_sample
+            WHERE instance_id IN (SELECT id FROM ap_instance WHERE service_id = (SELECT id FROM ap_service WHERE name = $1))
               AND timeslot BETWEEN $2 AND $3),
         
           merged AS (
@@ -156,7 +161,7 @@ func queryStack(ctx context.Context, db *sqlx.DB, serviceName string) ([]Stack, 
         
           SELECT merged.duration as duration, stack.methods as methods
           FROM merged
-            JOIN stack ON (merged.stack_id = stack.id);`, serviceName, timeMin, timeMax)
+            JOIN ap_stack AS stack ON (merged.stack_id = stack.id);`, serviceName, timeMin, timeMax)
 
 		if err != nil {
 			return errors.WithMessage(err, "query grouped samples")
@@ -218,7 +223,7 @@ func (r *Repository) FillCache() error {
 	}
 
 	err := transaction.WithTransaction(r.db, func(tx *sqlx.Tx) error {
-		return tx.Select(&values, `SELECT id, name FROM method`)
+		return tx.Select(&values, `SELECT id, name FROM ap_method`)
 	})
 
 	if err != nil {
@@ -244,7 +249,7 @@ func (r *Repository) MethodName(id int32) (string, error) {
 	}
 
 	err := transaction.WithTransaction(r.db, func(tx *sqlx.Tx) error {
-		return tx.Get(&name, `SELECT name FROM method WHERE id=$1`, id)
+		return tx.Get(&name, `SELECT name FROM ap_method WHERE id=$1`, id)
 	})
 
 	r.methodCacheLock.Lock()
