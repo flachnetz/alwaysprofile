@@ -20,7 +20,7 @@ export class Effects {
     ofType(ServicesActionTypes.LoadServices),
     switchMap(() => {
       return from(this.apiService.listServices()).pipe(
-        map(services => new UpdateServices(services.services)),
+        map(services => new UpdateServices(services.services || [])),
         catchError(() => EMPTY));
     }));
 

@@ -30,7 +30,7 @@ export class ApiService {
 }
 
 export interface IServices {
-  services: string[];
+  services: string[] | null;
 }
 
 interface IStackResponse {
