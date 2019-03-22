@@ -32,14 +32,22 @@ type Ingester struct {
 
 	stackCacheLock sync.Mutex
 	stackCache     map[int64]existsValue
+
+	serviceCacheLock sync.Mutex
+	serviceCache     map[string]int32
+
+	instanceCacheLock sync.Mutex
+	instanceCache     map[uuid.UUID]int32
 }
 
 func NewIngester(db *sqlx.DB) *Ingester {
 	return &Ingester{
 		db: db,
 
-		methodCache: make(map[string]int32),
-		stackCache:  make(map[int64]existsValue),
+		methodCache:   map[string]int32{},
+		stackCache:    map[int64]existsValue{},
+		serviceCache:  map[string]int32{},
+		instanceCache: map[uuid.UUID]int32{},
 	}
 }
 
@@ -148,7 +156,7 @@ func (ingester *Ingester) Ingest(profile Profile) error {
 				`INSERT INTO ap_sample (timeslot, instance_id, version, items) VALUES ($1, $2, $3, $4)
 				ON CONFLICT (timeslot, instance_id) DO UPDATE
 				SET version=$3+1, items=EXCLUDED.items
-				WHERE ap_sample.version = $3`,
+				WHERE ap_sample.version = $3 RETURNING version`,
 				key.Timeslot, key.InstanceId, row.Version, pq.Array(items))
 
 			if err == sql.ErrNoRows {
@@ -337,6 +345,16 @@ func (ingester *Ingester) storeStacks(tx *sqlx.Tx, stacks []Stack) error {
 }
 
 func (ingester *Ingester) serviceId(tx *sqlx.Tx, serviceName string) (int32, error) {
+	var serviceId int32
+
+	ingester.serviceCacheLock.Lock()
+	serviceId, ok := ingester.serviceCache[serviceName]
+	ingester.serviceCacheLock.Unlock()
+
+	if ok {
+		return serviceId, nil
+	}
+
 	_, err := tx.Exec(
 		`INSERT INTO ap_service (name) VALUES ($1) ON CONFLICT DO NOTHING`,
 		serviceName)
@@ -345,12 +363,27 @@ func (ingester *Ingester) serviceId(tx *sqlx.Tx, serviceName string) (int32, err
 		return 0, errors.WithMessage(err, "store service name")
 	}
 
-	var instanceId int32
-	err = tx.Get(&instanceId, "SELECT id FROM ap_service WHERE name=$1", serviceName)
-	return instanceId, errors.WithMessage(err, "lookup service")
+	if err := tx.Get(&serviceId, "SELECT id FROM ap_service WHERE name=$1", serviceName); err != nil {
+		return 0, errors.WithMessage(err, "lookup service id")
+	}
+
+	// store service id in cache
+	ingester.serviceCacheLock.Lock()
+	ingester.serviceCache[serviceName] = serviceId
+	ingester.serviceCacheLock.Unlock()
+
+	return serviceId, nil
 }
 
 func (ingester *Ingester) instanceId(tx *sqlx.Tx, serviceId int32, instanceUuid uuid.UUID, tags map[string]string) (int32, error) {
+	ingester.instanceCacheLock.Lock()
+	instanceId, ok := ingester.instanceCache[instanceUuid]
+	ingester.instanceCacheLock.Unlock()
+
+	if ok {
+		return instanceId, nil
+	}
+
 	_, err := tx.Exec(
 		`INSERT INTO ap_instance (service_id, uuid, tags) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
 		serviceId, instanceUuid, pqJSON(tags))
@@ -359,9 +392,16 @@ func (ingester *Ingester) instanceId(tx *sqlx.Tx, serviceId int32, instanceUuid 
 		return 0, errors.WithMessage(err, "store instance")
 	}
 
-	var instanceId int32
-	err = tx.Get(&instanceId, "SELECT id FROM ap_instance WHERE uuid=$1", instanceUuid)
-	return instanceId, errors.WithMessage(err, "lookup instance")
+	if err := tx.Get(&instanceId, "SELECT id FROM ap_instance WHERE uuid=$1", instanceUuid); err != nil {
+		return 0, errors.WithMessage(err, "lookup instance id")
+	}
+
+	// store instance id in cache
+	ingester.instanceCacheLock.Lock()
+	ingester.instanceCache[instanceUuid] = instanceId
+	ingester.instanceCacheLock.Unlock()
+
+	return instanceId, nil
 }
 
 type Sample struct {
