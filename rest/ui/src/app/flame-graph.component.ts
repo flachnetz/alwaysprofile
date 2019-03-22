@@ -137,7 +137,11 @@ class Layouter {
         internalState.expandedIds = path.map(node => node.id);
       }
 
-      this.doLayout(internalState, this.root, {level: 0, nodeOffset: 0, nodeSize: 1});
+      const result = this.doLayout(internalState, this.root, {level: 0, nodeOffset: 0, nodeSize: 1});
+
+      console.log(`Layout has ${result.elementCount} elements and is ${result.levels} levels deep`);
+
+      this.container.style.height = `${result.levels + 5}rem`;
 
       // append all missing elements to the container
       if (this.pendingAppends.length) {
@@ -147,7 +151,7 @@ class Layouter {
     });
   }
 
-  private doLayout(state: InternalLayoutState, node: GraphNode, layout: NodeLayout) {
+  private doLayout(state: InternalLayoutState, node: GraphNode, layout: NodeLayout): LayoutResult {
     this.applyNodeLayout(state.containerWidth, node, layout);
 
     const childLevel = layout.level + 1;
@@ -157,6 +161,8 @@ class Layouter {
 
     // track x position of children
     let childOffset = layout.nodeOffset;
+
+    const result: LayoutResult = {levels: layout.level, elementCount: 1};
 
     for (const child of node.children) {
       let childSize;
@@ -180,19 +186,27 @@ class Layouter {
         }
 
         if (state.containerWidth * childSize < 1) {
-          // console.log(state.containerWidth, childSize)
           childSize = 0;
         }
       }
 
-      this.doLayout(state, child, {
+      // skip layout of child if too small
+      if (childSize === 0 && this.elementCache[child.id] == null)
+        continue;
+
+      const resultOfChild = this.doLayout(state, child, {
         nodeSize: childSize,
         nodeOffset: childOffset,
-        level: layout.level + 1,
+        level: childLevel,
       });
+
+      result.levels = Math.max(result.levels, resultOfChild.levels);
+      result.elementCount += resultOfChild.elementCount;
 
       childOffset += childSize;
     }
+
+    return result;
   }
 
   public elementOf(node: GraphNode): HTMLElement {
@@ -244,10 +258,15 @@ interface LayoutState {
   selected?: GraphNode;
 }
 
+
+interface LayoutResult {
+  levels: number;
+  elementCount: number;
+}
+
 interface InternalLayoutState extends LayoutState {
   expanded?: GraphNode[];
   expandedIds?: number[];
-
   containerWidth: number;
 }
 
@@ -297,3 +316,4 @@ function percentOf(value: number): string {
 interface TooltipContent {
   node: GraphNode;
 }
+
