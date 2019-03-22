@@ -47,9 +47,13 @@ export function methodsCompare(lhs: Method[], rhs: Method[]): number {
         return cmp;
       }
     } else {
-      return -1;
+      return 1;
     }
   }
+
+  if (lhs.length < rhs.length)
+    return -1;
+
   return 0;
 }
 

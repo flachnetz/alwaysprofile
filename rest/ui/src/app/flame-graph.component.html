@@ -1,7 +1,10 @@
 <div class="wrapper">
   <div class="span-container" #flameContainer>
     <div #tooltip class="tooltip mat-tooltip">
-      Some information here.
+      <ng-container *ngIf="tooltipContent$|async as tooltipContent">
+        <div>{{ tooltipContent.node.title }}</div>
+        <div>total: {{ tooltipContent.node.value }}, self: {{ tooltipContent.node.selfTime }}</div>
+      </ng-container>
     </div>
   </div>
 </div>

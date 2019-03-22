@@ -32,7 +32,11 @@ export class Stacks {
   }
 
   public get merged(): Stack[] {
-    return mergeStacks(...Object.values(this.byInstance));
+    const stacks = Object.values(this.byInstance);
+    if (stacks.length === 1)
+      return stacks[0];
+
+    return mergeStacks(...stacks);
   }
 }
 
