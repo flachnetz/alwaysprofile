@@ -4,15 +4,16 @@ import {NgModule} from '@angular/core';
 import {AppRoutingModule} from './app-routing.module';
 import {AppComponent} from './app.component';
 import {
+  MatButtonModule,
   MatCardModule,
   MatCheckboxModule,
-  MatFormFieldModule,
+  MatFormFieldModule, MatMenuModule,
   MatPaginatorModule,
   MatProgressBarModule,
   MatProgressSpinnerModule,
   MatRadioModule,
   MatSelectModule,
-  MatTableModule,
+  MatTableModule, MatTabsModule,
   MatToolbarModule,
   MatTooltipModule,
 } from '@angular/material';
@@ -33,6 +34,7 @@ import {Effects} from './state/effects.service';
 import {StoreDevtoolsModule} from '@ngrx/store-devtools';
 import {environment} from '../environments/environment';
 import {stacksReducer} from './state/stacks.state';
+import { ServiceNavigationComponent } from './service-navigation/service-navigation.component';
 
 @NgModule({
   declarations: [
@@ -47,6 +49,8 @@ import {stacksReducer} from './state/stacks.state';
     CallsTableComponent,
 
     StackLoaderComponent,
+
+    ServiceNavigationComponent,
   ],
   imports: [
     AppRoutingModule,
@@ -69,6 +73,7 @@ import {stacksReducer} from './state/stacks.state';
       logOnly: environment.production,
     }),
 
+    MatButtonModule,
     MatToolbarModule,
     MatFormFieldModule,
     MatSelectModule,
@@ -76,6 +81,8 @@ import {stacksReducer} from './state/stacks.state';
     MatCardModule,
     MatRadioModule,
     MatTableModule,
+    MatMenuModule,
+    MatTabsModule,
 
     BrowserModule,
     BrowserAnimationsModule,

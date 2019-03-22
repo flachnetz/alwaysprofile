@@ -1,5 +1,4 @@
 import {Component} from '@angular/core';
-import {MatSelectChange} from '@angular/material';
 import {Router} from '@angular/router';
 import {Store} from '@ngrx/store';
 import {AppState} from './state/app-state';
@@ -23,8 +22,7 @@ export class AppComponent {
     store.dispatch(new LoadServices());
   }
 
-  public onServiceSelectChange(event: MatSelectChange) {
-    const selectedService = event.value as string;
-    void this.router.navigate(["service", selectedService, "table"]);
+  public onServiceSelectChange(serviceId: string) {
+    void this.router.navigate(["service", serviceId, "table"]);
   }
 }

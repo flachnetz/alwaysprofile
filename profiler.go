@@ -17,7 +17,9 @@ func main() {
 		Tags: map[string]string{
 			"version": "v1.0.0",
 		},
-		
+
+		SampleFrequencyHz: 500,
+
 		Sender: sender.New(sender.Config{
 			BaseURL: &url.URL{Scheme: "http", Host: "localhost:3080", Path: "/v1/profile"},
 			Timeout: 1 * time.Second,
@@ -54,7 +56,7 @@ func lookForRandomPrimes() []int {
 }
 
 func isPrimeNumber(n int) bool {
-	if ! isSimplePrime(n) {
+	if !isSimplePrime(n) {
 		return true
 	}
 

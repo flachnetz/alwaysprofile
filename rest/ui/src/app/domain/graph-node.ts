@@ -14,8 +14,6 @@ export interface GraphConfig {
   collapseRuntimeCalls: boolean;
 }
 
-type NodeMap = { [id: number]: GraphNode };
-
 export class GraphNode {
   public readonly color: string;
 

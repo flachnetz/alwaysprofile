@@ -2,4 +2,7 @@
   <mat-progress-spinner mode="indeterminate"></mat-progress-spinner>
 </div>
 
-<router-outlet *ngIf="! (loading$|async)"></router-outlet>
+<ng-container *ngIf="! (loading$|async)">
+  <ServiceNavigation></ServiceNavigation>
+  <router-outlet></router-outlet>
+</ng-container>

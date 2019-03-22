@@ -1,17 +1,20 @@
-<mat-toolbar class="mat-elevation-z4" color="primary" class="toolbar">
+<mat-toolbar class="toolbar" color="primary">
 
   <div class="flex-spacer"></div>
 
-  <mat-select
-    class="service-select"
-    placeholder="Select service"
-    (selectionChange)="onServiceSelectChange($event)"
-    [value]="serviceId$|async">
+  <button
+    *ngIf="serviceId$|async as serviceId; else selectServicePlaceholder"
+    mat-button [matMenuTriggerFor]="appMenu">{{ serviceId }}
+  </button>
 
-    <mat-option *ngFor="let service of availableServices$|async" [value]="service">
-      {{ service }}
-    </mat-option>
-  </mat-select>
+  <ng-template #selectServicePlaceholder>
+    <button mat-button [matMenuTriggerFor]="appMenu">Select service</button>
+  </ng-template>
+
+  <mat-menu #appMenu="matMenu">
+    <button mat-menu-item *ngFor="let service of availableServices$|async"
+            (click)="onServiceSelectChange(service)">{{ service }}</button>
+  </mat-menu>
 </mat-toolbar>
 
 <router-outlet></router-outlet>

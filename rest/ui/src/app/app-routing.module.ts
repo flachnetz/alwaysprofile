@@ -4,6 +4,7 @@ import {IntroComponent} from "./intro/intro.component";
 import {GraphWrapperComponent} from "./graph-wrapper/graph-wrapper.component";
 import {CallsTableComponent} from "./calls-table/calls-table.component";
 import {StackLoaderComponent} from "./stack-loader/stack-loader.component";
+import {ServiceNavigationComponent} from "./service-navigation/service-navigation.component";
 
 const routes: Routes = [
   {
@@ -15,6 +16,11 @@ const routes: Routes = [
     component: StackLoaderComponent,
 
     children: [
+      {
+        path: "",
+        component: ServiceNavigationComponent,
+        outlet: "navigation",
+      },
       {
         path: "flamegraph",
         component: GraphWrapperComponent,
