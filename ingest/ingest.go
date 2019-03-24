@@ -411,8 +411,6 @@ type Sample struct {
 }
 
 type Profile struct {
-	Start time.Time
-
 	ServiceName string
 	InstanceId  uuid.UUID
 	Tags        map[string]string

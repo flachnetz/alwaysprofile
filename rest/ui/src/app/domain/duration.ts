@@ -1,5 +1,6 @@
 export class Instant {
-  constructor(readonly millis: number) {}
+  constructor(readonly millis: number) {
+  }
 
   public static now(): Instant {
     return new Instant(Date.now());
@@ -56,10 +57,10 @@ export class Duration {
     }
 
     if (this.millis >= 1) {
-      return this.seconds.toFixed(2) + 'ms';
+      return this.millis.toFixed(2) + 'ms';
     }
 
-    if(this.micros >= 1) {
+    if (this.micros >= 1) {
       return this.micros.toFixed(2) + 'µs';
     }
 
@@ -75,4 +76,16 @@ export class Duration {
   }
 
   public static readonly ZERO = new Duration(0);
+}
+
+export class Stopwatch {
+  private readonly startTime = performance.now();
+
+  public get elapsed(): Duration {
+    return new Duration(performance.now() - this.startTime);
+  }
+
+  public toString(): string {
+    return this.elapsed.toString();
+  }
 }

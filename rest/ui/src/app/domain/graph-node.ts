@@ -1,7 +1,9 @@
 import {mergeStacks, Stack} from './stack';
 import {Method} from './method';
 import {Duration} from './duration';
-import {doTimed} from '../api-service.service';
+import {Logger} from "../utils/logger";
+
+const logger = Logger.get("GraphNode");
 
 /**
  * Config to build a stack graph
@@ -66,7 +68,7 @@ export class GraphNode {
   }
 
   static fromStacks(stacks: Stack[]): GraphNode {
-    return doTimed(`Node.fromStacks(${stacks.length})`, () => graphNodeFromStacks(stacks));
+    return logger.doTimed(`Node.fromStacks(${stacks.length})`, () => graphNodeFromStacks(stacks));
   }
 }
 

@@ -37,12 +37,3 @@ interface IStackResponse {
   methods: string[];
   durationInMillis: number;
 }
-
-export function doTimed<T>(action: string, fn: () => T): T {
-  console.time(action);
-  try {
-    return fn();
-  } finally {
-    console.timeEnd(action);
-  }
-}

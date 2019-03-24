@@ -23,6 +23,6 @@ export class AppComponent {
   }
 
   public onServiceSelectChange(serviceId: string) {
-    void this.router.navigate(["service", serviceId, "table"]);
+    void this.router.navigate(["service", serviceId, "flamegraph"]);
   }
 }

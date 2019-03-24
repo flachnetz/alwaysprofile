@@ -1,9 +1,11 @@
 import {AfterViewInit, Component, ElementRef, HostListener, Input, NgZone, ViewChild} from '@angular/core';
 import {BehaviorSubject} from 'rxjs';
 import {GraphNode} from './domain/graph-node';
-import {doTimed} from './api-service.service';
 import {distinctUntilChanged} from "rxjs/operators";
 import {deepEqual} from "./utils/deep-equal";
+import {Logger} from "./utils/logger";
+
+const logger = Logger.get("FlameGraphComponent");
 
 @Component({
   selector: 'FlameGraph',
@@ -121,7 +123,7 @@ class Layouter {
   }
 
   public layout(state: LayoutState): void {
-    doTimed("FlameGraph.layout", () => {
+    logger.doTimed("FlameGraph.layout", () => {
       const internalState: InternalLayoutState = {
         ...state,
         containerWidth: this.container.offsetWidth,
@@ -139,7 +141,7 @@ class Layouter {
 
       const result = this.doLayout(internalState, this.root, {level: 0, nodeOffset: 0, nodeSize: 1});
 
-      console.log(`Layout has ${result.elementCount} elements and is ${result.levels} levels deep`);
+      logger.debug(`Layout has ${result.elementCount} elements and is ${result.levels} levels deep`);
 
       this.container.style.height = `${result.levels + 5}rem`;
 

@@ -6,9 +6,11 @@ import * as fromStacks from '../state/stacks.selectors';
 import {AppState} from '../state/app-state';
 import {DataSource} from '@angular/cdk/table';
 import {map} from 'rxjs/operators';
-import {doTimed} from '../api-service.service';
 import {Duration} from '../domain/duration';
 import {Stack} from '../domain/stack';
+import {Logger} from "../utils/logger";
+
+const logger = Logger.get("CallsTableComponent");
 
 @Component({
   selector: 'app-calls-table',
@@ -36,7 +38,7 @@ export class CallsTableComponent {
 
 const stacksAsDataSource = createSelector(
   fromStacks.selectStacks,
-  stacks => doTimed("Aggregate calls", () => calculateCalls(stacks.merged)));
+  stacks => logger.doTimed("Aggregate calls", () => calculateCalls(stacks.merged)));
 
 interface ICall {
   name: string;
