@@ -70,7 +70,7 @@ import {CallTreeComponent} from "./call-tree/call-tree.component";
       Effects,
     ]),
 
-    StoreDevtoolsModule.instrument({
+    environment.production ? [] : StoreDevtoolsModule.instrument({
       // Retains last 25 states
       maxAge: 25,
 

@@ -35,16 +35,9 @@ func main() {
 			router.GET("/api/v1/services/:service/stack", HandlerStack(db))
 			router.GET("/api/v1/services/:service/histogram", HandlerHistogram(db))
 			router.ServeFiles("/ui/*filepath", http.Dir("./ui/dist/ui/"))
-			return gziphandler.GzipHandler(SlowDownHandler(router))
+			return gziphandler.GzipHandler(router)
 		},
 	})
-}
-
-func SlowDownHandler(handler http.Handler) http.HandlerFunc {
-	return func(writer http.ResponseWriter, request *http.Request) {
-		time.Sleep(400 * time.Millisecond)
-		handler.ServeHTTP(writer, request)
-	}
 }
 
 func HandlerServices(db *sqlx.DB) httprouter.Handle {
@@ -129,7 +122,7 @@ func queryHistogram(ctx context.Context, db *sqlx.DB, serviceName string) (inter
 
 type Stack struct {
 	Methods          []string `json:"methods"`
-	DurationInMillis int32 `json:"durationInMillis"`
+	DurationInMillis int32    `json:"durationInMillis"`
 }
 
 func queryStack(ctx context.Context, db *sqlx.DB, serviceName string) ([]Stack, error) {
