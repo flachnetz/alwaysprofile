@@ -24,7 +24,8 @@ interface NavigationLink {
 const selectserviceNavigationLinks = createSelector(fromStacks.getSelectedServiceId, service => {
   return <NavigationLink[]>[
     {link: ["/service", service, "flamegraph"], title: "Flamegraph"},
-    {link: ["/service", service, "table"], title: "Method table"}
+    {link: ["/service", service, "table"], title: "Method table"},
+    {link: ["/service", service, "tree"], title: "Method tree"},
   ];
 });
 

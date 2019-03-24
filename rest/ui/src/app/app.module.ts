@@ -7,15 +7,18 @@ import {
   MatButtonModule,
   MatCardModule,
   MatCheckboxModule,
-  MatFormFieldModule, MatMenuModule,
+  MatFormFieldModule, MatIconModule,
+  MatMenuModule,
   MatPaginatorModule,
   MatProgressBarModule,
   MatProgressSpinnerModule,
   MatRadioModule,
   MatSelectModule,
-  MatTableModule, MatTabsModule,
+  MatTableModule,
+  MatTabsModule,
   MatToolbarModule,
   MatTooltipModule,
+  MatTreeModule,
 } from '@angular/material';
 import {ApiService} from './api-service.service';
 import {HttpClientModule} from '@angular/common/http';
@@ -34,7 +37,8 @@ import {Effects} from './state/effects.service';
 import {StoreDevtoolsModule} from '@ngrx/store-devtools';
 import {environment} from '../environments/environment';
 import {stacksReducer} from './state/stacks.state';
-import { ServiceNavigationComponent } from './service-navigation/service-navigation.component';
+import {ServiceNavigationComponent} from './service-navigation/service-navigation.component';
+import {CallTreeComponent} from "./call-tree/call-tree.component";
 
 @NgModule({
   declarations: [
@@ -47,6 +51,7 @@ import { ServiceNavigationComponent } from './service-navigation/service-navigat
     RecreateDirective,
 
     CallsTableComponent,
+    CallTreeComponent,
 
     StackLoaderComponent,
 
@@ -83,6 +88,8 @@ import { ServiceNavigationComponent } from './service-navigation/service-navigat
     MatTableModule,
     MatMenuModule,
     MatTabsModule,
+    MatTreeModule,
+    MatIconModule,
 
     BrowserModule,
     BrowserAnimationsModule,
