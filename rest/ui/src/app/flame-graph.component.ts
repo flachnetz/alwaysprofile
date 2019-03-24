@@ -187,7 +187,7 @@ class Layouter {
           childSize = child.value.millis / node.value.millis * layout.nodeSize;
         }
 
-        if (state.containerWidth * childSize < 1) {
+        if (state.containerWidth * childSize < 2) {
           childSize = 0;
         }
       }
@@ -202,7 +202,10 @@ class Layouter {
         level: childLevel,
       });
 
-      result.levels = Math.max(result.levels, resultOfChild.levels);
+      if (childSize > 0) {
+        result.levels = Math.max(result.levels, resultOfChild.levels);
+      }
+
       result.elementCount += resultOfChild.elementCount;
 
       childOffset += childSize;
@@ -234,9 +237,11 @@ class Layouter {
     if (layout.nodeSize === 0) {
       tStyle.width = "0";
       tStyle.opacity = "0";
+      tStyle.visibility = "hidden";
     } else {
       tStyle.width = percentOf(layout.nodeSize);
       tStyle.opacity = "1";
+      tStyle.visibility = null;
     }
 
     tStyle.top = layout.level + "rem";
@@ -297,7 +302,7 @@ function injectFlameGraphCSS() {
       
       white-space: nowrap;
       
-      transition: left 250ms ease-out, width 250ms ease-out, opacity 250ms ease-out;
+      transition: left 250ms ease-out, width 250ms ease-out, opacity 250ms ease-out, visibility 250ms;
       
       cursor: pointer;
     }

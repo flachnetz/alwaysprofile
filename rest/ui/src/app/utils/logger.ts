@@ -9,18 +9,18 @@ export class Logger {
     if (environment.production)
       return;
 
-    console.debug(`%c[DEBUG]%c${this.name}`, debugStyle, nameStyle, ...args)
+    console.debug(`%c[DEBUG] %c${this.name}`, debugStyle, nameStyle, ...args)
   }
 
   public info(...args: any) {
     if (environment.production)
       return;
 
-    console.info(`%c[INFO] %c${this.name}`, infoStyle, nameStyle, ...args)
+    console.info(` %c[INFO] %c${this.name}`, infoStyle, nameStyle, ...args)
   }
 
   public warn(...args: any) {
-    console.warn(`%c[WARN] %c${this.name}`, warnStyle, nameStyle, ...args)
+    console.warn(` %c[WARN] %c${this.name}`, warnStyle, nameStyle, ...args)
   }
 
   public error(...args: any) {
