@@ -32,11 +32,11 @@ export class Logger {
 
     try {
       const result = fn();
-      this.info(`${action} took ${watch}`);
+      this.debug(`${action} took ${watch}`);
       return result;
 
     } catch (err) {
-      this.info(`${action} failed after ${watch}`);
+      this.debug(`${action} failed after ${watch}`);
       throw err;
     }
   }

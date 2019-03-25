@@ -18,6 +18,7 @@ export interface GraphConfig {
 
 export class GraphNode {
   public readonly color: string;
+  public readonly weight: number = this.value.millis;
 
   constructor(
     public readonly id: number,

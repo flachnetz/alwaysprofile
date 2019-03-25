@@ -1,5 +1,7 @@
 <div class="wrapper">
   <div class="span-container" #flameContainer>
+    <canvas #flameCanvas></canvas>
+
     <div #tooltip class="tooltip mat-tooltip">
       <ng-container *ngIf="tooltipContent$|async as tooltipContent">
         <div>{{ tooltipContent.node.title }}</div>
