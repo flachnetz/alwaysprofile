@@ -6,7 +6,7 @@ import (
 	"github.com/flachnetz/startup"
 	base "github.com/flachnetz/startup/startup_base"
 	ht "github.com/flachnetz/startup/startup_http"
-	. "github.com/flachnetz/startup/startup_postgres"
+	po "github.com/flachnetz/startup/startup_postgres"
 	"github.com/jmoiron/sqlx"
 	"github.com/jmoiron/sqlx/types"
 	"github.com/julienschmidt/httprouter"
@@ -19,7 +19,7 @@ import (
 func main() {
 	var opts struct {
 		Base     base.BaseOptions
-		Postgres PostgresOptions
+		Postgres po.PostgresOptions
 		HTTP     ht.HTTPOptions
 	}
 
@@ -27,9 +27,9 @@ func main() {
 
 	db := opts.Postgres.Connection()
 
-	var repo Repository
+	repo := NewRepository()
 
-	err := WithTransactionContext(context.Background(), db,
+	err := po.WithTransactionContext(context.Background(), db,
 		func(ctx context.Context, tx *sqlx.Tx) error { return repo.FillCache(ctx) })
 
 	base.FatalOnError(err, "Preload caches failed")
@@ -38,7 +38,7 @@ func main() {
 		Name: "rest",
 		Routing: func(router *httprouter.Router) http.Handler {
 			router.GET("/api/v1/services", HandlerServices(db))
-			router.GET("/api/v1/services/:service/stack", HandlerStack(db, &repo))
+			router.GET("/api/v1/services/:service/stack", HandlerStack(db, repo))
 			router.GET("/api/v1/services/:service/histogram", HandlerHistogram(db))
 			router.ServeFiles("/ui/*filepath", http.Dir("./ui/dist/ui/"))
 			return gziphandler.GzipHandler(router)
@@ -104,7 +104,7 @@ func queryHistogram(ctx context.Context, db *sqlx.DB, serviceName string) (inter
 		Count       float32 `json:"duration" db:"duration"`
 	}
 
-	err := WithTransactionContext(ctx, db, func(ctx context.Context, tx *sqlx.Tx) error {
+	err := po.WithTransactionContext(ctx, db, func(ctx context.Context, tx *sqlx.Tx) error {
 		const binSize = 60 * time.Second
 
 		return tx.SelectContext(ctx, &histogram, `
@@ -137,7 +137,7 @@ func queryStack(ctx context.Context, db *sqlx.DB, repo *Repository, serviceName 
 		MethodIds      types.JSONText `db:"methods"`
 	}
 
-	err := WithTransactionContext(ctx, db, func(ctx context.Context, tx *sqlx.Tx) error {
+	err := po.WithTransactionContext(ctx, db, func(ctx context.Context, tx *sqlx.Tx) error {
 		timeMin := 0
 		timeMax := time.Now().Unix()
 
@@ -204,13 +204,19 @@ type Repository struct {
 	methodCache     map[int32]string
 }
 
+func NewRepository() *Repository {
+	return &Repository{
+		methodCache: map[int32]string{},
+	}
+}
+
 func (r *Repository) FillCache(ctx context.Context) error {
 	var values []struct {
 		Id   int32  `db:"id"`
 		Name string `db:"name"`
 	}
 
-	err := WithTransactionFromContext(ctx, func(tx *sqlx.Tx) error {
+	err := po.WithTransactionFromContext(ctx, func(tx *sqlx.Tx) error {
 		return tx.Select(&values, `SELECT id, name FROM ap_method`)
 	})
 
@@ -236,7 +242,7 @@ func (r *Repository) MethodName(ctx context.Context, id int32) (string, error) {
 		return name, nil
 	}
 
-	err := WithTransactionFromContext(ctx, func(tx *sqlx.Tx) error {
+	err := po.WithTransactionFromContext(ctx, func(tx *sqlx.Tx) error {
 		return tx.GetContext(ctx, &name, `SELECT name FROM ap_method WHERE id=$1`, id)
 	})
 

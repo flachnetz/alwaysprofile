@@ -5,6 +5,7 @@ go 1.12
 require (
 	github.com/NYTimes/gziphandler v1.1.1
 	github.com/flachnetz/startup v1.6.1
+	github.com/flachnetz/startup/startup_base v1.0.0
 	github.com/flachnetz/startup/startup_http v1.0.0
 	github.com/flachnetz/startup/startup_postgres v1.1.2
 	github.com/go-sql-driver/mysql v1.4.1 // indirect
