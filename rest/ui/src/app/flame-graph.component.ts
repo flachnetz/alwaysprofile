@@ -58,8 +58,8 @@ export class FlameGraphComponent implements AfterViewInit {
 
   @HostListener('window:resize')
   public onWindowResize() {
-    // if (this.flameGraph != null && this.layouter != null)
-    //   this.layoutState$.next(this.layoutState);
+    this.renderer.scheduleTick();
+    this.renderer.applyCanvasSize();
   }
 
   private get layoutState(): LayoutState {
@@ -152,7 +152,6 @@ class Renderer {
     this.timeOffset = Date.now();
 
     this.applyCanvasSize();
-    this.scheduleTick();
   }
 
   private get timeValue(): number {
@@ -169,7 +168,7 @@ class Renderer {
     this.render(timeValue);
   }
 
-  private applyCanvasSize() {
+  public applyCanvasSize() {
     let level = 0;
     for (const layout of this.layouts) {
       if (layout.level > level)
@@ -180,7 +179,7 @@ class Renderer {
     this.canvas.width = p.offsetWidth;
     this.canvas.height = 16 * level;
 
-    return level;
+    this.scheduleTick();
   }
 
   public scheduleTick(params?: RenderParameters) {
@@ -223,6 +222,7 @@ class Renderer {
         if (width < 1)
           continue;
 
+        // do the little split line
         if (width > 2)
           width--;
 
