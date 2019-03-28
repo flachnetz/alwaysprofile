@@ -80,17 +80,19 @@ export class FlameGraphComponent implements AfterViewInit {
   private handleMouseOverEvent(event: MouseEvent) {
     const elTooltip = this.tooltip.nativeElement as HTMLElement;
 
-    const mouseX = event.offsetX;
-    const mouseY = event.offsetY;
-    this.renderer.scheduleTick({mouseX: mouseX, mouseY: mouseY});
-
     const node = this.nodeFromEvent(event);
+
+    this.renderer.scheduleTick({hoverNode: node || undefined});
+
     if (!node) {
       elTooltip.style.display = "none";
       return;
     }
 
     const elCanvas = this.flameCanvas.nativeElement;
+
+    const mouseX = event.offsetX;
+    const mouseY = event.offsetY;
 
     if (mouseX <= elCanvas.offsetWidth / 2) {
       elTooltip.style.left = (mouseX + 8) + "px";
@@ -117,7 +119,9 @@ export class FlameGraphComponent implements AfterViewInit {
     for (const layout of this.layouter.layouts.values()) {
       if (layout.level === y) {
         if (layout.nodeOffset <= x && x <= layout.nodeOffset + layout.nodeSize) {
-          return layout.node;
+          if (layout.nodeSize * target.offsetWidth >= 1) {
+            return layout.node;
+          }
         }
       }
     }
@@ -127,12 +131,11 @@ export class FlameGraphComponent implements AfterViewInit {
 }
 
 interface RenderParameters {
-  mouseX: number;
-  mouseY: number;
+  hoverNode?: GraphNode;
 }
 
 class Renderer {
-  private params: RenderParameters = {mouseX: -1, mouseY: -1};
+  private params: RenderParameters = {};
 
   private layouts: NodeLayout[] = [];
   private timeOffset = Date.now();
@@ -180,8 +183,13 @@ class Renderer {
     return level;
   }
 
-  public scheduleTick(params: RenderParameters = this.params) {
-    this.params = params;
+  public scheduleTick(params?: RenderParameters) {
+    if (params) {
+      if (deepEqual(this.params, params))
+        return;
+
+      this.params = params;
+    }
 
     if (!this.hasScheduledTick) {
       this.hasScheduledTick = true;
@@ -211,9 +219,12 @@ class Renderer {
           ? ((1 - t) * layout.previousSize + t * layout.nodeSize)
           : layout.nodeSize;
 
-        const width = (nodeSize * canvasWidth) | 0;
+        let width = (nodeSize * canvasWidth) | 0;
         if (width < 1)
           continue;
+
+        if (width > 2)
+          width--;
 
         const nodeOffset = t < 1 && layout.previousOffset != null
           ? ((1 - t) * layout.previousOffset + t * layout.nodeOffset)
@@ -222,7 +233,7 @@ class Renderer {
         const x = (nodeOffset * canvasWidth) | 0;
 
         const y = layout.level * 16;
-        const height = 16;
+        const height = 15;
 
         ctx.fillStyle = layout.node.color;
 
@@ -230,10 +241,8 @@ class Renderer {
           ctx.fillStyle = colorWithAlpha(layout.node.color);
         }
 
-        if (x < this.params.mouseX && this.params.mouseX < x + width) {
-          if (y < this.params.mouseY && this.params.mouseY < y + 16) {
-            ctx.fillStyle = "lightblue";
-          }
+        if (this.params.hoverNode === layout.node) {
+          ctx.fillStyle = "lightblue";
         }
 
         ctx.fillRect(x, y, width, height);
@@ -245,7 +254,7 @@ class Renderer {
           ctx.save();
           ctx.fillStyle = "black";
           ctx.clip(rect);
-          ctx.fillText(layout.node.title, 2 + x | 0, y + 12);
+          ctx.fillText(layout.node.title, 2 + x | 0, y + 11);
           ctx.restore();
         }
       }
