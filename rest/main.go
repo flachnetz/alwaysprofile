@@ -4,10 +4,9 @@ import (
 	"context"
 	"github.com/NYTimes/gziphandler"
 	"github.com/flachnetz/startup"
-	"github.com/flachnetz/startup/lib/httputil"
-	"github.com/flachnetz/startup/lib/transaction"
-	"github.com/flachnetz/startup/startup_http"
-	"github.com/flachnetz/startup/startup_postgres"
+	base "github.com/flachnetz/startup/startup_base"
+	ht "github.com/flachnetz/startup/startup_http"
+	. "github.com/flachnetz/startup/startup_postgres"
 	"github.com/jmoiron/sqlx"
 	"github.com/jmoiron/sqlx/types"
 	"github.com/julienschmidt/httprouter"
@@ -19,20 +18,27 @@ import (
 
 func main() {
 	var opts struct {
-		Base     startup.BaseOptions
-		Postgres startup_postgres.PostgresOptions
-		HTTP     startup_http.HTTPOptions
+		Base     base.BaseOptions
+		Postgres PostgresOptions
+		HTTP     ht.HTTPOptions
 	}
 
 	startup.MustParseCommandLine(&opts)
 
 	db := opts.Postgres.Connection()
 
-	opts.HTTP.Serve(startup_http.Config{
+	var repo Repository
+
+	err := WithTransactionContext(context.Background(), db,
+		func(ctx context.Context, tx *sqlx.Tx) error { return repo.FillCache(ctx) })
+
+	base.FatalOnError(err, "Preload caches failed")
+
+	opts.HTTP.Serve(ht.Config{
 		Name: "rest",
 		Routing: func(router *httprouter.Router) http.Handler {
 			router.GET("/api/v1/services", HandlerServices(db))
-			router.GET("/api/v1/services/:service/stack", HandlerStack(db))
+			router.GET("/api/v1/services/:service/stack", HandlerStack(db, &repo))
 			router.GET("/api/v1/services/:service/histogram", HandlerHistogram(db))
 			router.ServeFiles("/ui/*filepath", http.Dir("./ui/dist/ui/"))
 			return gziphandler.GzipHandler(router)
@@ -49,7 +55,7 @@ func HandlerServices(db *sqlx.DB) httprouter.Handle {
 		var opts struct {
 		}
 
-		httputil.ExtractAndCall(&opts, writer, request, params, func() (interface{}, error) {
+		ht.ExtractAndCall(&opts, writer, request, params, func() (interface{}, error) {
 			services, err := queryServiceNames(request.Context(), db)
 			if err != nil {
 				return nil, errors.WithMessage(err, "list services")
@@ -60,14 +66,14 @@ func HandlerServices(db *sqlx.DB) httprouter.Handle {
 	}
 }
 
-func HandlerStack(db *sqlx.DB) httprouter.Handle {
+func HandlerStack(db *sqlx.DB, repo *Repository) httprouter.Handle {
 	return func(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
 		var opts struct {
 			Service string `validate:"required" path:"service"`
 		}
 
-		httputil.ExtractAndCall(&opts, writer, request, params, func() (interface{}, error) {
-			return queryStack(request.Context(), db, opts.Service)
+		ht.ExtractAndCall(&opts, writer, request, params, func() (interface{}, error) {
+			return queryStack(request.Context(), db, repo, opts.Service)
 		})
 	}
 }
@@ -78,7 +84,7 @@ func HandlerHistogram(db *sqlx.DB) httprouter.Handle {
 			Service string `validate:"required" path:"service"`
 		}
 
-		httputil.ExtractAndCall(&opts, writer, request, params, func() (interface{}, error) {
+		ht.ExtractAndCall(&opts, writer, request, params, func() (interface{}, error) {
 			return queryHistogram(request.Context(), db, opts.Service)
 		})
 	}
@@ -98,7 +104,7 @@ func queryHistogram(ctx context.Context, db *sqlx.DB, serviceName string) (inter
 		Count       float32 `json:"duration" db:"duration"`
 	}
 
-	err := transaction.WithTransaction(db, func(tx *sqlx.Tx) error {
+	err := WithTransactionContext(ctx, db, func(ctx context.Context, tx *sqlx.Tx) error {
 		const binSize = 60 * time.Second
 
 		return tx.SelectContext(ctx, &histogram, `
@@ -125,18 +131,13 @@ type Stack struct {
 	DurationInMillis int32    `json:"durationInMillis"`
 }
 
-func queryStack(ctx context.Context, db *sqlx.DB, serviceName string) ([]Stack, error) {
-	r := Repository{
-		db:          db,
-		methodCache: map[int32]string{},
-	}
-
+func queryStack(ctx context.Context, db *sqlx.DB, repo *Repository, serviceName string) ([]Stack, error) {
 	var dbStacks []struct {
 		DurationMillis int32          `db:"duration"`
 		MethodIds      types.JSONText `db:"methods"`
 	}
 
-	err := transaction.WithTransaction(db, func(tx *sqlx.Tx) error {
+	err := WithTransactionContext(ctx, db, func(ctx context.Context, tx *sqlx.Tx) error {
 		timeMin := 0
 		timeMax := time.Now().Unix()
 
@@ -163,10 +164,6 @@ func queryStack(ctx context.Context, db *sqlx.DB, serviceName string) ([]Stack, 
 		return nil
 	})
 
-	if err := r.FillCache(); err != nil {
-		return nil, errors.WithMessage(err, "fill cache")
-	}
-
 	var stacks []Stack
 
 	// lookup table for method names
@@ -182,7 +179,7 @@ func queryStack(ctx context.Context, db *sqlx.DB, serviceName string) ([]Stack, 
 		for _, id := range methodIds {
 			name, ok := lookupTable[id]
 			if !ok {
-				name, err = r.MethodName(id)
+				name, err = repo.MethodName(ctx, id)
 				if err != nil {
 					return nil, errors.WithMessage(err, "lookup method name")
 				}
@@ -203,19 +200,17 @@ func queryStack(ctx context.Context, db *sqlx.DB, serviceName string) ([]Stack, 
 }
 
 type Repository struct {
-	db *sqlx.DB
-
 	methodCacheLock sync.Mutex
 	methodCache     map[int32]string
 }
 
-func (r *Repository) FillCache() error {
+func (r *Repository) FillCache(ctx context.Context) error {
 	var values []struct {
 		Id   int32  `db:"id"`
 		Name string `db:"name"`
 	}
 
-	err := transaction.WithTransaction(r.db, func(tx *sqlx.Tx) error {
+	err := WithTransactionFromContext(ctx, func(tx *sqlx.Tx) error {
 		return tx.Select(&values, `SELECT id, name FROM ap_method`)
 	})
 
@@ -232,7 +227,7 @@ func (r *Repository) FillCache() error {
 	return nil
 }
 
-func (r *Repository) MethodName(id int32) (string, error) {
+func (r *Repository) MethodName(ctx context.Context, id int32) (string, error) {
 	r.methodCacheLock.Lock()
 	name, ok := r.methodCache[id]
 	r.methodCacheLock.Unlock()
@@ -241,8 +236,8 @@ func (r *Repository) MethodName(id int32) (string, error) {
 		return name, nil
 	}
 
-	err := transaction.WithTransaction(r.db, func(tx *sqlx.Tx) error {
-		return tx.Get(&name, `SELECT name FROM ap_method WHERE id=$1`, id)
+	err := WithTransactionFromContext(ctx, func(tx *sqlx.Tx) error {
+		return tx.GetContext(ctx, &name, `SELECT name FROM ap_method WHERE id=$1`, id)
 	})
 
 	r.methodCacheLock.Lock()
