@@ -1,6 +1,6 @@
 import {AfterViewInit, Component, ElementRef, HostListener, Input, NgZone, ViewChild} from '@angular/core';
 import {BehaviorSubject} from 'rxjs';
-import {GraphNode} from './domain/graph-node';
+import {ColorHex, GraphNode} from './domain/graph-node';
 import {distinctUntilChanged} from "rxjs/operators";
 import {deepEqual} from "./utils/deep-equal";
 import {Logger} from "./utils/logger";
@@ -226,6 +226,10 @@ class Renderer {
 
         ctx.fillStyle = layout.node.color;
 
+        if (layout.expanded) {
+          ctx.fillStyle = colorWithAlpha(layout.node.color);
+        }
+
         if (x < this.params.mouseX && this.params.mouseX < x + width) {
           if (y < this.params.mouseY && this.params.mouseY < y + 16) {
             ctx.fillStyle = "lightblue";
@@ -253,9 +257,6 @@ class Layouter {
   public layouts = new Map<GraphNode, NodeLayout>();
 
   constructor(private readonly root: GraphNode) {
-
-    // ensure that css is available in the document
-    injectFlameGraphCSS();
   }
 
   public update(state: LayoutState) {
@@ -280,63 +281,6 @@ class Layouter {
   }
 }
 
-//
-// public
-//   elementOf(node
-// :
-//   GraphNode
-// ):
-//   HTMLElement
-//   {
-//     const cached = this.elementCache[node.id];
-//     if (cached != null)
-//       return cached;
-//
-//     const elNode = document.createElement("div");
-//     elNode.id = "node-" + node.id;
-//     elNode.className = "span";
-//     elNode.style.backgroundColor = node.color;
-//
-//     this.elementCache[node.id] = elNode;
-//     this.pendingAppends.push(elNode);
-//
-//     return elNode;
-//   }
-//
-// private
-//   applyNodeLayout(containerWidth
-// :
-//   number, node
-// :
-//   GraphNode, layout
-// :
-//   NodeLayout
-// )
-//   {
-//     const tNode = this.elementOf(node);
-//     const tStyle = tNode.style;
-//
-//     if (layout.nodeSize === 0) {
-//       tStyle.width = "0";
-//       tStyle.opacity = "0";
-//       tStyle.visibility = "hidden";
-//     } else {
-//       tStyle.width = percentOf(layout.nodeSize);
-//       tStyle.opacity = "1";
-//       tStyle.visibility = null;
-//     }
-//
-//     tStyle.top = layout.level + "rem";
-//     tStyle.left = percentOf(layout.nodeOffset);
-//
-//     if (containerWidth * layout.nodeSize > 35) {
-//       tNode.innerText = node.title;
-//     } else {
-//       tNode.innerText = "";
-//     }
-//   }
-// }
-
 interface NodeLayout {
   node: GraphNode;
   nodeSize: number;
@@ -345,6 +289,8 @@ interface NodeLayout {
 
   previousSize?: number;
   previousOffset?: number;
+
+  expanded: boolean;
 }
 
 interface LayoutState {
@@ -358,7 +304,7 @@ interface InternalLayoutState extends LayoutState {
 }
 
 function doLayout(state: InternalLayoutState, root: GraphNode): Map<GraphNode, NodeLayout> {
-  const layouts: NodeLayout[] = [{node: root, level: 0, nodeOffset: 0, nodeSize: 1}];
+  const layouts: NodeLayout[] = [{node: root, level: 0, nodeOffset: 0, nodeSize: 1, expanded: !!state.expanded}];
   const previous = state.previous;
 
   for (let idx = 0; idx < layouts.length; idx++) {
@@ -370,6 +316,7 @@ function doLayout(state: InternalLayoutState, root: GraphNode): Map<GraphNode, N
 
     // true if we need to handle span expansion on childLevel
     const childLevelExpanded = !!state.expanded && childLevel < state.expanded.length;
+    let childIsExpanded: boolean = false;
 
     // track x position of children
     let childOffset = layout.nodeOffset;
@@ -384,6 +331,7 @@ function doLayout(state: InternalLayoutState, root: GraphNode): Map<GraphNode, N
         if (state.expanded![childLevel] === child) {
           // fully expanded child
           childSize = layout.nodeSize;
+          childIsExpanded = true;
         }
       } else {
         childSize = child.weight * childScale;
@@ -394,6 +342,7 @@ function doLayout(state: InternalLayoutState, root: GraphNode): Map<GraphNode, N
         nodeSize: childSize,
         nodeOffset: childOffset,
         level: childLevel,
+        expanded: childIsExpanded,
       };
 
       // add animation function if changed
@@ -415,46 +364,11 @@ function doLayout(state: InternalLayoutState, root: GraphNode): Map<GraphNode, N
   return result;
 }
 
-function injectFlameGraphCSS() {
-  const css = `
-    .span-container {
-      position: relative;
-    }
-  
-    .span-container > .span {
-      display: block;
-      position: absolute;
-      
-      height: 1rem;
-      line-height: 1rem;
-      
-      box-sizing: border-box;
-      background: #ccc;
-      border-bottom: 1px solid white;
-      border-right: 1px solid white;
-      
-      font-size: 0.66em;
-      
-      overflow: hidden;
-      text-overflow: clip;
-      
-      white-space: nowrap;
-      
-      transition: left 250ms ease-out, width 250ms ease-out, opacity 250ms ease-out, visibility 250ms;
-      
-      cursor: pointer;
-    }
-  `;
-
-  if (document.getElementById("flameGraphStyle") == null) {
-    const style = document.createElement("style");
-    style.textContent = css;
-    style.id = "flameGraphStyle";
-    document.head.appendChild(style);
-  }
-}
-
 interface TooltipContent {
   node: GraphNode;
 }
 
+
+function colorWithAlpha(color: ColorHex): ColorHex {
+  return color.slice(0, 7) + "80";
+}

@@ -21,9 +21,9 @@ export class ApiService {
       .toPromise();
 
     return response.map(stack => {
-      return new Stack(
+      return fixStack(new Stack(
         stack.methods.map(method => parseGoMethod(method)),
-        new Duration(stack.durationInMillis));
+        new Duration(stack.durationInMillis)));
     });
   }
 
@@ -36,4 +36,19 @@ export interface IServices {
 interface IStackResponse {
   methods: string[];
   durationInMillis: number;
+}
+
+function fixStack(stack: Stack): Stack {
+  let methods = stack.methods;
+
+  if (methods.length > 1) {
+    if (methods[0].fqn === "net/http.(*conn).serve") {
+      methods = methods.slice(1);
+    }
+  }
+
+  if (methods === stack.methods)
+    return stack;
+
+  return new Stack(methods, stack.duration);
 }

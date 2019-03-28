@@ -61,13 +61,13 @@ function calculateCalls(stacks: Stack[]): Call[] {
   const selfTimes = new Map<Method, Duration>();
   const totalTimes = new Map<Method, Duration>();
 
-  const methods = new Map<number, Method>();
+  const methods = new Set<Method>();
   const parentsOf = new Map<Method, Set<Method>>();
 
 
   for (const stack of stacks) {
     stack.methods.forEach((method, idx) => {
-      methods.set(method.id, method);
+      methods.add(method);
 
       if (idx > 0) {
         let parents = parentsOf.get(method);
@@ -86,7 +86,7 @@ function calculateCalls(stacks: Stack[]): Call[] {
   }
 
   const calls = new Map<Method, Call>();
-  for (const method of methods.values()) {
+  for (const method of methods) {
     const selfTime = selfTimes.get(method) || Duration.ZERO;
     calls.set(method, new Call(method, totalTimes.get(method)!, selfTime));
   }
@@ -96,5 +96,10 @@ function calculateCalls(stacks: Stack[]): Call[] {
     call.callers = [...parents].map(parent => calls.get(parent)!.copy());
   });
 
-  return [...calls.values()].sort((lhs, rhs) => rhs.selfTime.compareTo(lhs.selfTime));
+  const key = (call: Call) => {
+    return call.callers.length
+  };
+
+  // return [...calls.values()].sort((lhs, rhs) => rhs.selfTime.compareTo(lhs.selfTime));
+  return [...calls.values()].sort((lhs, rhs) => key(rhs) - key(lhs));
 }
