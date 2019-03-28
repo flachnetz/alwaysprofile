@@ -13,6 +13,7 @@ RUN go mod download
 COPY . .
 RUN go build -v -o /ingest .
 
+#
 FROM alpine:3.9
 
 COPY /sql /sql

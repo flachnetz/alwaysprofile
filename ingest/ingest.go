@@ -2,12 +2,13 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"database/sql/driver"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"github.com/flachnetz/startup/lib/transaction"
+	. "github.com/flachnetz/startup/startup_postgres"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/jmoiron/sqlx/types"
@@ -56,19 +57,19 @@ type Stack struct {
 	Methods []int32
 }
 
-func (ingester *Ingester) Ingest(profile Profile) error {
+func (ingester *Ingester) Ingest(ctx context.Context, profile Profile) error {
 	type SampleKey struct {
 		Timeslot   int32
 		InstanceId int32
 	}
 
-	return transaction.WithTransaction(ingester.db, func(tx *sqlx.Tx) error {
-		serviceId, err := ingester.serviceId(tx, profile.ServiceName)
+	return WithTransactionContext(ctx, ingester.db, func(ctx context.Context, tx *sqlx.Tx) error {
+		serviceId, err := ingester.serviceId(ctx, profile.ServiceName)
 		if err != nil {
 			return errors.WithMessage(err, "ensure service exists")
 		}
 
-		instanceId, err := ingester.instanceId(tx, serviceId, profile.InstanceId, profile.Tags)
+		instanceId, err := ingester.instanceId(ctx, serviceId, profile.InstanceId, profile.Tags)
 		if err != nil {
 			return errors.WithMessage(err, "ensure instance exists")
 		}
@@ -79,7 +80,7 @@ func (ingester *Ingester) Ingest(profile Profile) error {
 			// transform local method ids into a list of global method ids.
 			var methodIds []int32
 			for _, frame := range sample.Stack {
-				methodId, err := ingester.methodId(tx, profile.Names[frame])
+				methodId, err := ingester.methodId(ctx, profile.Names[frame])
 				if err != nil {
 					return errors.WithMessage(err, "lookup method")
 				}
@@ -94,7 +95,7 @@ func (ingester *Ingester) Ingest(profile Profile) error {
 			stacks = append(stacks, Stack{stackId, methodIds})
 		}
 
-		if err := ingester.storeStacks(tx, stacks); err != nil {
+		if err := ingester.storeStacks(ctx, stacks); err != nil {
 			return errors.WithMessage(err, "store stacks")
 		}
 
@@ -129,7 +130,7 @@ func (ingester *Ingester) Ingest(profile Profile) error {
 
 			row.Items = pq.GenericArray{A: &previousItems}
 
-			err := tx.Get(&row,
+			err := tx.GetContext(ctx, &row,
 				`SELECT version, items FROM ap_sample WHERE timeslot=$1 AND instance_id=$2`,
 				key.Timeslot, key.InstanceId)
 
@@ -152,7 +153,7 @@ func (ingester *Ingester) Ingest(profile Profile) error {
 			sort.Slice(items, func(i, j int) bool { return items[i].StackId < items[j].StackId })
 
 			var updated int
-			err = tx.Get(&updated,
+			err = tx.GetContext(ctx, &updated,
 				`INSERT INTO ap_sample (timeslot, instance_id, version, items) VALUES ($1, $2, $3, $4)
 				ON CONFLICT (timeslot, instance_id) DO UPDATE
 				SET version=$3+1, items=EXCLUDED.items
@@ -230,7 +231,9 @@ func hashInt32Slice(slice []int32) int64 {
 	return int64(hash.Sum64())
 }
 
-func (ingester *Ingester) methodId(tx *sqlx.Tx, name string) (int32, error) {
+func (ingester *Ingester) methodId(ctx context.Context, name string) (int32, error) {
+	tx := mustTx(TransactionFromContext(ctx))
+
 	ingester.methodCacheLock.Lock()
 	id, ok := ingester.methodCache[name]
 	ingester.methodCacheLock.Unlock()
@@ -240,13 +243,13 @@ func (ingester *Ingester) methodId(tx *sqlx.Tx, name string) (int32, error) {
 	}
 
 	// first try to insert
-	_, err := tx.Exec(`INSERT INTO ap_method (name) VALUES ($1) ON CONFLICT DO NOTHING`, name)
+	_, err := tx.ExecContext(ctx, `INSERT INTO ap_method (name) VALUES ($1) ON CONFLICT DO NOTHING`, name)
 	if err != nil {
 		return 0, errors.WithMessage(err, "store method name")
 	}
 
 	// and then select the inserted value
-	if err := tx.Get(&id, "SELECT id FROM ap_method WHERE name=$1", name); err != nil {
+	if err := tx.GetContext(ctx, &id, "SELECT id FROM ap_method WHERE name=$1", name); err != nil {
 		return 0, errors.WithMessage(err, "get id of method")
 	}
 
@@ -257,13 +260,13 @@ func (ingester *Ingester) methodId(tx *sqlx.Tx, name string) (int32, error) {
 	return id, nil
 }
 
-func (ingester *Ingester) fillCaches(db *sqlx.DB) error {
-	return transaction.WithTransaction(db, func(tx *sqlx.Tx) error {
-		if err := ingester.fillMethodCache(tx); err != nil {
+func (ingester *Ingester) fillCaches(ctx context.Context, db TxStarter) error {
+	return WithTransactionContext(ctx, db, func(ctx context.Context, tx *sqlx.Tx) error {
+		if err := ingester.fillMethodCache(ctx); err != nil {
 			return err
 		}
 
-		if err := ingester.fillStackCache(tx); err != nil {
+		if err := ingester.fillStackCache(ctx); err != nil {
 			return err
 		}
 
@@ -271,13 +274,14 @@ func (ingester *Ingester) fillCaches(db *sqlx.DB) error {
 	})
 }
 
-func (ingester *Ingester) fillMethodCache(tx *sqlx.Tx) error {
+func (ingester *Ingester) fillMethodCache(ctx context.Context) error {
 	var methods []struct {
 		Id   int32  `db:"id"`
 		Name string `db:"name"`
 	}
 
-	if err := tx.Select(&methods, `SELECT id, name FROM ap_method`); err != nil {
+	tx := mustTx(TransactionFromContext(ctx))
+	if err := tx.SelectContext(ctx, &methods, `SELECT id, name FROM ap_method`); err != nil {
 		return errors.WithMessage(err, "query method ids")
 	}
 
@@ -290,10 +294,11 @@ func (ingester *Ingester) fillMethodCache(tx *sqlx.Tx) error {
 	return nil
 }
 
-func (ingester *Ingester) fillStackCache(tx *sqlx.Tx) error {
+func (ingester *Ingester) fillStackCache(ctx context.Context) error {
 	var stackIds []int64
 
-	if err := tx.Select(&stackIds, `SELECT id FROM ap_stack`); err != nil {
+	tx := mustTx(TransactionFromContext(ctx))
+	if err := tx.SelectContext(ctx, &stackIds, `SELECT id FROM ap_stack`); err != nil {
 		return errors.WithMessage(err, "query stack ids")
 	}
 
@@ -306,7 +311,7 @@ func (ingester *Ingester) fillStackCache(tx *sqlx.Tx) error {
 	return nil
 }
 
-func (ingester *Ingester) storeStacks(tx *sqlx.Tx, stacks []Stack) error {
+func (ingester *Ingester) storeStacks(ctx context.Context, stacks []Stack) error {
 	var missingStacks []Stack
 
 	locked(&ingester.stackCacheLock, func() {
@@ -322,7 +327,8 @@ func (ingester *Ingester) storeStacks(tx *sqlx.Tx, stacks []Stack) error {
 		return nil
 	}
 
-	stmt, err := tx.Prepare(`INSERT INTO ap_stack (id, methods) VALUES ($1, $2) ON CONFLICT DO NOTHING`)
+	tx := mustTx(TransactionFromContext(ctx))
+	stmt, err := tx.PrepareContext(ctx, `INSERT INTO ap_stack (id, methods) VALUES ($1, $2) ON CONFLICT DO NOTHING`)
 	if err != nil {
 		return errors.WithMessage(err, "prepare insert stack stmt")
 	}
@@ -330,7 +336,7 @@ func (ingester *Ingester) storeStacks(tx *sqlx.Tx, stacks []Stack) error {
 	defer closeIgnoreErr(stmt)
 
 	for _, stack := range missingStacks {
-		if _, err := stmt.Exec(stack.Id, pqJSON(stack.Methods)); err != nil {
+		if _, err := stmt.ExecContext(ctx, stack.Id, pqJSON(stack.Methods)); err != nil {
 			return errors.WithMessage(err, "store stack")
 		}
 	}
@@ -344,7 +350,9 @@ func (ingester *Ingester) storeStacks(tx *sqlx.Tx, stacks []Stack) error {
 	return nil
 }
 
-func (ingester *Ingester) serviceId(tx *sqlx.Tx, serviceName string) (int32, error) {
+func (ingester *Ingester) serviceId(ctx context.Context, serviceName string) (int32, error) {
+	tx := mustTx(TransactionFromContext(ctx))
+
 	var serviceId int32
 
 	ingester.serviceCacheLock.Lock()
@@ -355,7 +363,7 @@ func (ingester *Ingester) serviceId(tx *sqlx.Tx, serviceName string) (int32, err
 		return serviceId, nil
 	}
 
-	_, err := tx.Exec(
+	_, err := tx.ExecContext(ctx,
 		`INSERT INTO ap_service (name) VALUES ($1) ON CONFLICT DO NOTHING`,
 		serviceName)
 
@@ -363,7 +371,7 @@ func (ingester *Ingester) serviceId(tx *sqlx.Tx, serviceName string) (int32, err
 		return 0, errors.WithMessage(err, "store service name")
 	}
 
-	if err := tx.Get(&serviceId, "SELECT id FROM ap_service WHERE name=$1", serviceName); err != nil {
+	if err := tx.GetContext(ctx, &serviceId, "SELECT id FROM ap_service WHERE name=$1", serviceName); err != nil {
 		return 0, errors.WithMessage(err, "lookup service id")
 	}
 
@@ -375,7 +383,17 @@ func (ingester *Ingester) serviceId(tx *sqlx.Tx, serviceName string) (int32, err
 	return serviceId, nil
 }
 
-func (ingester *Ingester) instanceId(tx *sqlx.Tx, serviceId int32, instanceUuid uuid.UUID, tags map[string]string) (int32, error) {
+func mustTx(tx *sqlx.Tx) *sqlx.Tx {
+	if tx == nil {
+		panic(ErrNoTransaction)
+	}
+
+	return tx
+}
+
+func (ingester *Ingester) instanceId(ctx context.Context, serviceId int32, instanceUuid uuid.UUID, tags map[string]string) (int32, error) {
+	tx := mustTx(TransactionFromContext(ctx))
+
 	ingester.instanceCacheLock.Lock()
 	instanceId, ok := ingester.instanceCache[instanceUuid]
 	ingester.instanceCacheLock.Unlock()
@@ -384,7 +402,7 @@ func (ingester *Ingester) instanceId(tx *sqlx.Tx, serviceId int32, instanceUuid 
 		return instanceId, nil
 	}
 
-	_, err := tx.Exec(
+	_, err := tx.ExecContext(ctx,
 		`INSERT INTO ap_instance (service_id, uuid, tags) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
 		serviceId, instanceUuid, pqJSON(tags))
 
@@ -392,7 +410,7 @@ func (ingester *Ingester) instanceId(tx *sqlx.Tx, serviceId int32, instanceUuid 
 		return 0, errors.WithMessage(err, "store instance")
 	}
 
-	if err := tx.Get(&instanceId, "SELECT id FROM ap_instance WHERE uuid=$1", instanceUuid); err != nil {
+	if err := tx.GetContext(ctx, &instanceId, "SELECT id FROM ap_instance WHERE uuid=$1", instanceUuid); err != nil {
 		return 0, errors.WithMessage(err, "lookup instance id")
 	}
 

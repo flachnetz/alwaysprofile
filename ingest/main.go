@@ -1,20 +1,20 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
+	"context"
 	"github.com/NYTimes/gziphandler"
 	"github.com/flachnetz/startup"
+	. "github.com/flachnetz/startup/startup_base"
+	base "github.com/flachnetz/startup/startup_base"
 	"github.com/flachnetz/startup/startup_http"
 	"github.com/flachnetz/startup/startup_postgres"
 	"github.com/julienschmidt/httprouter"
-	"log"
 	"net/http"
 )
 
 func main() {
 	var opts struct {
-		Base     startup.BaseOptions
+		Base     base.BaseOptions
 		Postgres startup_postgres.PostgresOptions
 		HTTP     startup_http.HTTPOptions
 	}
@@ -27,8 +27,8 @@ func main() {
 
 	ingester := NewIngester(db)
 
-	err := ingester.fillCaches(db)
-	startup.FatalOnError(err, "Could not fill method name cache")
+	err := ingester.fillCaches(context.Background(), db)
+	FatalOnError(err, "Could not fill method name cache")
 
 	opts.HTTP.Serve(startup_http.Config{
 		Name: "ingest",
@@ -40,20 +40,12 @@ func main() {
 }
 
 func HandlerIngest(ingester *Ingester) httprouter.Handle {
-
-	return func(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
+	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 		var body Profile
 
-		if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
-			log.Println(err)
-			http.Error(writer, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		if err := ingester.Ingest(body); err != nil {
-			fmt.Println(err)
-			http.Error(writer, err.Error(), http.StatusInternalServerError)
-			return
-		}
+		startup_http.ExtractAndCallWithBody(nil, &body, w, r, params, func() (interface{}, error) {
+			err := ingester.Ingest(r.Context(), body)
+			return nil, err
+		})
 	}
 }
