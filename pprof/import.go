@@ -2,7 +2,7 @@ package pprof
 
 import (
 	"fmt"
-	"github.com/iamybj/go-forceexport"
+	"github.com/flachnetz/go-forceexport"
 	"log"
 	"runtime/pprof"
 	"unsafe"
@@ -22,7 +22,7 @@ func init() {
 	pprof.Profiles()
 
 	// force the usage of that symbol to prevent the go compiler from seeing it as
-	// dead code. It would then remove it and the unexported funcIdByPC we
+	// dead code. It would then remove it and the unexported methods we
 	// force import below
 	_ = fmt.Sprintf("%p", pprof.StartCPUProfile)
 
