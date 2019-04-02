@@ -6,9 +6,9 @@ import {AppState} from '../state/app-state';
 import {Duration} from '../domain/duration';
 import {Stack} from '../domain/stack';
 import {Logger} from "../utils/logger";
-import {NestedTreeControl} from "@angular/cdk/tree";
+import {FlatTreeControl} from "@angular/cdk/tree";
 import {Method} from "../domain/method";
-import {ArrayDataSource} from "@angular/cdk/collections";
+import {MatTreeFlatDataSource, MatTreeFlattener} from "@angular/material";
 
 const logger = Logger.get("CallTreeComponent");
 
@@ -18,24 +18,45 @@ const logger = Logger.get("CallTreeComponent");
   styleUrls: ['./call-tree.component.scss']
 })
 export class CallTreeComponent {
-  treeControl = new NestedTreeControl<Call>((call: Call) => {
-    return call.callers;
-  });
+  private transformer = (node: Call, level: number) => {
+    return {
+      call: node,
+      expandable: !!node.callers && node.callers.length > 0,
+      level: level,
+    };
+  };
 
-  dataSource$ = this.store.select(stacksAsDataSource);
+  treeControl = new FlatTreeControl<FlatCall>(
+    node => node.level, node => node.expandable);
+
+  treeFlattener = new MatTreeFlattener(
+    this.transformer,
+    node => node.level,
+    node => node.expandable,
+    node => node.callers);
+
+  dataSource = new MatTreeFlatDataSource(this.treeControl, this.treeFlattener);
 
   constructor(
     private readonly store: Store<AppState>) {
+
+    this.store.select(stacksAsDataSource).subscribe(calls => this.dataSource.data = calls);
   }
 
-  hasChild(_: number, node: Call) {
-    return node.callers.length > 0;
+  public paddingOf(node: FlatCall): string {
+    return node.level + "em";
   }
+}
+
+interface FlatCall {
+  call: Call;
+  expandable: boolean;
+  level: number;
 }
 
 const stacksAsDataSource = createSelector(fromStacks.selectStacks, stacks => {
   const calls = logger.doTimed("Aggregate calls", () => calculateCalls(stacks.merged));
-  return new ArrayDataSource(calls.slice(0, 64));
+  return calls.slice(0, 64);
 });
 
 class Call {
@@ -52,48 +73,49 @@ class Call {
 
   public copy(): Call {
     return new Call(this.method, this.totalTime, this.selfTime,
-      this.callers.map(call => call.copy()));
+      this.callers);
   }
 }
 
 
 function calculateCalls(stacks: Stack[]): Call[] {
-  const selfTimes = new Map<Method, Duration>();
-  const totalTimes = new Map<Method, Duration>();
+  interface MethodInfo {
+    selfTimeMs: number;
+    totalTimeMs: number;
+    parentOf: Set<Method>;
+  }
 
-  const methods = new Set<Method>();
-  const parentsOf = new Map<Method, Set<Method>>();
-
+  const methods = new Map<Method, MethodInfo>();
 
   for (const stack of stacks) {
     stack.methods.forEach((method, idx) => {
-      methods.add(method);
-
-      if (idx > 0) {
-        let parents = parentsOf.get(method);
-        if (parents === undefined)
-          parentsOf.set(method, parents = new Set());
-
-        parents.add(stack.methods[idx - 1]);
+      let info = methods.get(method);
+      if (info == null) {
+        info = {selfTimeMs: 0, totalTimeMs: 0, parentOf: new Set()};
+        methods.set(method, info);
       }
 
-      totalTimes.set(method, (totalTimes.get(method) || Duration.ZERO).plus(stack.duration));
+      if (idx > 0) {
+        info.parentOf.add(stack.methods[idx - 1]);
+      }
+
+      info.totalTimeMs += stack.duration.millis
     });
 
     // add top of the stack to self time
     const method = stack.methods[stack.methods.length - 1];
-    selfTimes.set(method, (selfTimes.get(method) || Duration.ZERO).plus(stack.duration));
+    methods.get(method)!.selfTimeMs += stack.duration.millis;
   }
 
   const calls = new Map<Method, Call>();
-  for (const method of methods) {
-    const selfTime = selfTimes.get(method) || Duration.ZERO;
-    calls.set(method, new Call(method, totalTimes.get(method)!, selfTime));
-  }
+  methods.forEach((info, method) => {
+    const call = new Call(method, new Duration(info.totalTimeMs), new Duration(info.selfTimeMs));
+    calls.set(method, call);
+  });
 
   calls.forEach(call => {
-    let parents = parentsOf.get(call.method) || [];
-    call.callers = [...parents].map(parent => calls.get(parent)!.copy());
+    const parents = methods.get(call.method)!.parentOf;
+    call.callers = [...parents].map(parent => calls.get(parent)!);
   });
 
   const key = (call: Call) => {

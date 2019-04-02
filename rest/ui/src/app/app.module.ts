@@ -7,7 +7,8 @@ import {
   MatButtonModule,
   MatCardModule,
   MatCheckboxModule,
-  MatFormFieldModule, MatIconModule,
+  MatFormFieldModule,
+  MatIconModule,
   MatMenuModule,
   MatPaginatorModule,
   MatProgressBarModule,
@@ -39,6 +40,7 @@ import {environment} from '../environments/environment';
 import {stacksReducer} from './state/stacks.state';
 import {ServiceNavigationComponent} from './service-navigation/service-navigation.component';
 import {CallTreeComponent} from "./call-tree/call-tree.component";
+import {CdkTreeModule} from "@angular/cdk/tree";
 
 @NgModule({
   declarations: [
@@ -47,14 +49,10 @@ import {CallTreeComponent} from "./call-tree/call-tree.component";
     IntroComponent,
     ViewConfigComponent,
     GraphWrapperComponent,
-
     RecreateDirective,
-
     CallsTableComponent,
     CallTreeComponent,
-
     StackLoaderComponent,
-
     ServiceNavigationComponent,
   ],
   imports: [
@@ -88,8 +86,10 @@ import {CallTreeComponent} from "./call-tree/call-tree.component";
     MatTableModule,
     MatMenuModule,
     MatTabsModule,
-    MatTreeModule,
     MatIconModule,
+
+    CdkTreeModule,
+    MatTreeModule,
 
     BrowserModule,
     BrowserAnimationsModule,

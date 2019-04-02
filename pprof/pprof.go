@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"log"
+	"math/rand"
 	"runtime"
 	"sync"
 	"time"
+	"unsafe"
 )
 
 type Config struct {
@@ -97,7 +99,7 @@ func (p *profiler) loop() {
 
 		time.Sleep(100 * time.Millisecond)
 
-		data, tags, eof := readProfile()
+		data, tags, eof := runtime_pprof_readProfile()
 		if err := profile.add(data, tags); err != nil {
 			log.Println("Process profile data:", err)
 		}
@@ -107,6 +109,8 @@ func (p *profiler) loop() {
 		}
 
 		if time.Since(profile.Start) >= 2*time.Second {
+			// p.captureMoreStacks(profile)
+
 			if err := p.collector.Enqueue(profile); err != nil {
 				log.Println("Enqueue profile to collector:", err)
 			}
@@ -141,4 +145,71 @@ func (p *profiler) Stop() {
 	<-p.done
 
 	_ = p.collector.Close()
+}
+
+func (p *profiler) captureMoreStacks(profile *Profile) {
+	var stacks []runtime.StackRecord
+
+	startTime := time.Now()
+
+	var stackSample [16]runtime.StackRecord
+
+	f := sampleGoroutines(stackSample[:])
+	fmt.Println(f)
+
+	var parked int
+	for _, stack := range stackSample[:] {
+		stackAsUint := stack.Stack()
+
+		if len(stackAsUint) == 0 {
+			continue
+		}
+
+		pc := stackAsUint[0]
+
+		if pc-runtime_gopark > 1024 {
+			continue
+		}
+
+		loc := profile.locForPC(pc)
+		if profile.Names[loc] != "runtime.gopark" {
+			continue
+		}
+
+		parked++
+
+		// calculate time probability
+		duration := time.Duration((2.0 / f) * float64(time.Second))
+
+		stackSlice := *(*[]uint64)(unsafe.Pointer(&stackAsUint))
+		profile.addStack(stackSlice, uint64(time.Now().UnixNano()), duration)
+	}
+
+	p.Logger("Time to capture goroutine profile: %s", time.Since(startTime))
+	p.Logger("Got %d parked stack traces out of %d", parked, len(stacks))
+}
+
+func sampleGoroutines(records []runtime.StackRecord) float64 {
+	currentGp := runtime_getg()
+
+	r := rand.NewSource(time.Now().UnixNano())
+
+	runtime_stopTheWorld("profile")
+
+	result := float64(len(records)) / float64(len(runtime_allgs))
+
+	for i := range records {
+		gpIndex := int(r.Int63()) % len(runtime_allgs)
+		gp := runtime_allgs[gpIndex]
+
+		if currentGp == gp {
+			continue
+		}
+
+		runtime_saveg(^uintptr(0), ^uintptr(0), gp, &records[i])
+	}
+
+	runtime_startTheWorld()
+
+	return result
 }

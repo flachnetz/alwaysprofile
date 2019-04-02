@@ -1,15 +1,28 @@
-.example-tree-invisible {
-  display: none;
+mat-card {
+  margin: 0.66em;
 }
 
-.example-tree ul,
-.example-tree li {
-  margin-top: 0;
-  margin-bottom: 0;
-  list-style-type: none;
+cdk-tree {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
 }
 
+cdk-tree-node {
+  display: table-row;
+  cursor: pointer;
+}
 
-small {
-  margin-left: 0.66em;
+cdk-tree-node:hover {
+  background: #eee
+}
+
+cdk-tree-node > .column {
+  display: table-cell;
+  padding: 0.33em;
+}
+
+.column--time {
+  width: 5em;
+  text-align: right;
 }

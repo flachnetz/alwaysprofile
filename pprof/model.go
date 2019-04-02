@@ -77,7 +77,7 @@ func (profile *Profile) add(data []uint64, tags []unsafe.Pointer) error {
 		}
 
 		// get data and advance
-		stamp := profile.baseTimestamp + data[1]
+		stampNs := profile.baseTimestamp + data[1]
 		count := data[2]
 		stack := data[3:data[0]]
 		data = data[data[0]:]
@@ -98,37 +98,7 @@ func (profile *Profile) add(data []uint64, tags []unsafe.Pointer) error {
 			}
 		}
 
-		var loc []MethodId
-		for i := len(stack) - 1; i >= 0; i-- {
-			addr := stack[i]
-
-			// Addresses from stack traces point to the
-			// next instruction after each call, except
-			// for the leaf, which points to where the
-			// signal occurred. locForPC expects return
-			// PCs, so increment the leaf address to look
-			// like a return PC.
-			if i == 0 {
-				addr++
-			}
-
-			l := profile.locForPC(uintptr(addr))
-			if l == 0 {
-				continue
-			}
-
-			loc = append(loc, l)
-		}
-
-		if len(loc) > 0 {
-			sample := Sample{
-				TimestampNs: stamp,
-				Duration:    profile.period,
-				Stack:       loc,
-			}
-
-			profile.Samples = append(profile.Samples, sample)
-		}
+		profile.addStack(stack, stampNs, profile.period)
 	}
 
 	return nil
@@ -191,4 +161,38 @@ func (profile *Profile) locForPC(addr uintptr) MethodId {
 	// 	break
 	// }
 	// frame, more = frames.Next()
+}
+
+func (profile *Profile) addStack(stack []uint64, stampNs uint64, duration time.Duration) {
+	var loc []MethodId
+	for i := len(stack) - 1; i >= 0; i-- {
+		addr := stack[i]
+
+		// Addresses from stack traces point to the
+		// next instruction after each call, except
+		// for the leaf, which points to where the
+		// signal occurred. locForPC expects return
+		// PCs, so increment the leaf address to look
+		// like a return PC.
+		if i == 0 {
+			addr++
+		}
+
+		l := profile.locForPC(uintptr(addr))
+		if l == 0 {
+			continue
+		}
+
+		loc = append(loc, l)
+	}
+
+	if len(loc) > 0 {
+		sample := Sample{
+			TimestampNs: stampNs,
+			Duration:    duration,
+			Stack:       loc,
+		}
+
+		profile.Samples = append(profile.Samples, sample)
+	}
 }

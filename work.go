@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"github.com/flachnetz/alwaysprofile/pprof"
 	"github.com/flachnetz/alwaysprofile/pprof/sender"
+	"io"
+	"io/ioutil"
 	"math/rand"
+	"net/http"
 	"net/url"
 	"sort"
 	"time"
@@ -12,7 +15,7 @@ import (
 
 func main() {
 	config := pprof.Config{
-		ServiceName: "demo-2",
+		ServiceName: "demo-5",
 
 		Tags: map[string]string{
 			"version": "v1.0.0",
@@ -28,9 +31,15 @@ func main() {
 
 	defer pprof.Start(config).Stop()
 
+	http.DefaultClient.Transport = &http.Transport{
+		MaxConnsPerHost:     128,
+		MaxIdleConns:        128,
+		MaxIdleConnsPerHost: 128,
+	}
+
 	fmt.Println("Starting random workload.")
 
-	limitCh := make(chan bool, 4)
+	limitCh := make(chan bool, 2)
 	for {
 		limitCh <- true
 		go func() {
@@ -45,9 +54,13 @@ func lookForRandomPrimes() []int {
 
 	for idx := 0; idx < 1000; idx++ {
 		n := rand.Intn(1024 * 1024)
+
 		if isPrimeNumber(n) {
 			primes = append(primes, n)
+			reportPrimeNumber(n)
 		}
+
+		// time.Sleep(100 * time.Millisecond)
 	}
 
 	sort.Ints(primes)
@@ -56,7 +69,7 @@ func lookForRandomPrimes() []int {
 }
 
 func isPrimeNumber(n int) bool {
-	if !isSimplePrime(n) {
+	if isSimplePrime(n) {
 		return true
 	}
 
@@ -76,4 +89,15 @@ func isSimplePrime(n int) bool {
 
 func isDivideableBy(n int, m int) bool {
 	return n%m == 0
+}
+
+func reportPrimeNumber(n int) {
+	response, err := http.Get(fmt.Sprintf("http://localhost:8000/prime?n=%d", n))
+	if err != nil {
+		return
+	}
+
+	_, _ = io.Copy(ioutil.Discard, response.Body)
+
+	_ = response.Body.Close()
 }
