@@ -15,6 +15,8 @@ export class AppComponent {
   public readonly serviceId$ = this.store.select(fromStacks.getSelectedServiceId);
   public readonly availableServices$ = this.store.select(fromServices.all);
 
+  public readonly histogram$ = this.store.select(fromStacks.selectHistogram);
+
   constructor(
     private readonly store: Store<AppState>,
     private readonly router: Router) {

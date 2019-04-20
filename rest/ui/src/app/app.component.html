@@ -17,4 +17,8 @@
   </mat-menu>
 </mat-toolbar>
 
+<ng-container *ngIf="histogram$|async as histogram">
+  <Histogram style="height:64px; width: 100%;" [histogram]="histogram"></Histogram>
+</ng-container>
+
 <router-outlet></router-outlet>

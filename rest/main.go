@@ -84,7 +84,7 @@ func HandlerHistogram(db *sqlx.DB) httprouter.Handle {
 		}
 
 		ht.ExtractAndCall(&opts, writer, request, params, func() (interface{}, error) {
-			return queryHistogram(request.Context(), db, opts.Service)
+			return queryHistogram(request.Context(), db, opts.Service, 5*time.Minute)
 		})
 	}
 }
@@ -95,31 +95,21 @@ func queryServiceNames(ctx context.Context, db *sqlx.DB) ([]string, error) {
 	return names, errors.WithMessage(err, "list services")
 }
 
-func queryHistogram(ctx context.Context, db *sqlx.DB, serviceName string) (interface{}, error) {
-	var histogram []struct {
-		InstanceId  int     `json:"instanceId" db:"instance_id"`
-		TimeSlot    int     `json:"timeslot" db:"time"`
-		Occurrences int     `json:"sampleCount" db:"occurrences"`
-		Count       float32 `json:"duration" db:"duration"`
-	}
+type HistogramBin struct {
+	TimeslotInMillis int `json:"timeslotInMillis" db:"timeslot"`
+	Value            int `json:"sampleCount" db:"sample_count"`
+}
+
+func queryHistogram(ctx context.Context, db *sqlx.DB, serviceName string, binSize time.Duration) ([]HistogramBin, error) {
+	var histogram []HistogramBin
 
 	err := po.WithTransactionContext(ctx, db, func(ctx context.Context, tx *sqlx.Tx) error {
-		const binSize = 60 * time.Second
-
 		return tx.SelectContext(ctx, &histogram, `
-			SELECT
-				instance_id,
-			       1000*min(timeslot)::INT8 as time,
-			       sum(duration) as duration,
-			       sum(occurrences) as occurrences
-			
-			FROM ap_sample AS sample
-			  JOIN ap_instance AS instance ON sample.instance_id = instance.id
-				JOIN ap_service AS service ON instance.service_id = service.id
-			WHERE service.name = $2
-			GROUP BY instance_id, $1*(timeslot/$1)::INT`,
-
-			binSize/time.Second, serviceName)
+			SELECT (timeslot / $1)::INT8 * $1 * 1000 as timeslot,
+					sum((item).duration) as sample_count
+			FROM ap_sample, unnest(ap_sample.items) as item
+			WHERE ap_sample.instance_id = ANY(ap_instances_of($2))
+			GROUP BY 1`, binSize/time.Second, serviceName)
 	})
 
 	return histogram, err
@@ -146,7 +136,7 @@ func queryStack(ctx context.Context, db *sqlx.DB, repo *Repository, serviceName 
 			    WITH samples_unnest AS (
             SELECT unnest(items) AS item
             FROM ap_sample
-            WHERE instance_id IN (SELECT id FROM ap_instance WHERE service_id = (SELECT id FROM ap_service WHERE name = $1))
+            WHERE instance_id = ANY(ap_instances_of($1))
               AND timeslot BETWEEN $2 AND $3),
         
           merged AS (

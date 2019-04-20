@@ -41,6 +41,7 @@ import {stacksReducer} from './state/stacks.state';
 import {ServiceNavigationComponent} from './service-navigation/service-navigation.component';
 import {CallTreeComponent} from "./call-tree/call-tree.component";
 import {CdkTreeModule} from "@angular/cdk/tree";
+import { HistogramComponent } from './histogram/histogram.component';
 
 @NgModule({
   declarations: [
@@ -54,6 +55,7 @@ import {CdkTreeModule} from "@angular/cdk/tree";
     CallTreeComponent,
     StackLoaderComponent,
     ServiceNavigationComponent,
+    HistogramComponent,
   ],
   imports: [
     AppRoutingModule,

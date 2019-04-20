@@ -16,3 +16,6 @@ export const getSelectedServiceId = createSelector(
 
 export const selectNodes = createSelector(
   selectFeature, state => GraphNode.fromStacks(state.stacks.merged));
+
+export const selectHistogram = createSelector(
+  selectFeature, state => state.histogram);

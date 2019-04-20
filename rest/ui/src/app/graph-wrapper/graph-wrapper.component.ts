@@ -1,7 +1,6 @@
 import {Component, OnDestroy} from '@angular/core';
 import {ActivatedRoute} from '@angular/router';
-import {EMPTY, Observable, ReplaySubject} from 'rxjs';
-import {GraphNode} from '../domain/graph-node';
+import {ReplaySubject} from 'rxjs';
 import {Store} from '@ngrx/store';
 import {AppState} from '../state/app-state';
 

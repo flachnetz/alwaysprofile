@@ -2,7 +2,8 @@ import {Injectable} from '@angular/core';
 import {HttpClient} from '@angular/common/http';
 import {parseGoMethod} from './domain/method';
 import {Stack} from './domain/stack';
-import {Duration} from './domain/duration';
+import {Duration, Instant} from './domain/duration';
+import {HistogramValue} from "./domain/histogram";
 
 @Injectable()
 export class ApiService {
@@ -27,6 +28,17 @@ export class ApiService {
     });
   }
 
+  public async fetchHistogram(service: string): Promise<HistogramValue[]> {
+    const response = await this.httpClient
+      .get<IHistogramItem[]>(`/api/v1/services/${encodeURIComponent(service)}/histogram`)
+      .toPromise();
+
+    return response.map(item => <HistogramValue>({
+      time: new Instant(item.timeslotInMillis),
+      value: item.sampleCount,
+    }))
+  }
+
 }
 
 export interface IServices {
@@ -36,6 +48,11 @@ export interface IServices {
 interface IStackResponse {
   methods: string[];
   durationInMillis: number;
+}
+
+interface IHistogramItem {
+  timeslotInMillis: number;
+  sampleCount: number;
 }
 
 function fixStack(stack: Stack): Stack {

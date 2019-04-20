@@ -51,3 +51,13 @@ CREATE TABLE ap_sample (
 
   UNIQUE (timeslot, instance_id)
 );
+
+-- function that returns all instance ids for a given service name.
+CREATE OR REPLACE FUNCTION ap_instances_of(TEXT)
+RETURNS INT4[] AS $$
+  SELECT array_agg(id)
+  FROM ap_instance
+  WHERE service_id = (SELECT id FROM ap_service WHERE name = $1)
+$$
+LANGUAGE SQL;
+

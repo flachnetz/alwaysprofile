@@ -6,6 +6,14 @@ export class Instant {
     return new Instant(Date.now());
   }
 
+  public before(other: Instant): boolean {
+    return this.millis < other.millis;
+  }
+
+  public after(other: Instant): boolean {
+    return this.millis > other.millis;
+  }
+
   public compareTo(other: Duration): number {
     return Math.sign(this.millis - other.millis);
   }
@@ -73,6 +81,18 @@ export class Duration {
 
   public static between(earlier: Instant, later: Instant): Duration {
     return new Duration(later.millis - earlier.millis);
+  }
+
+  public static ofMillis(millis: number) {
+    return new Duration(millis);
+  }
+
+  public static ofSeconds(seconds: number) {
+    return new Duration(1000 * seconds);
+  }
+
+  public static ofMinutes(minutes: number) {
+    return new Duration(60000 * minutes);
   }
 
   public static readonly ZERO = new Duration(0);

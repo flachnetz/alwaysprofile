@@ -54,6 +54,10 @@ export class FlameGraphComponent implements AfterViewInit {
     this.ngZone.runOutsideAngular(() => {
       container.addEventListener("mousemove", event => this.handleMouseOverEvent(event));
     });
+
+    this.ngZone.runOutsideAngular(() => {
+      container.addEventListener("mouseleave", event => this.handleMouseOverEvent(event));
+    });
   }
 
   @HostListener('window:resize')
