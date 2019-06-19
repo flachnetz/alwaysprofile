@@ -15,6 +15,10 @@ export class Method {
     public readonly type: string,
     // the method name.
     public readonly name: string) {
+
+    if (methodCache[fqn] != null) {
+      throw new Error("duplicate method instance created");
+    }
   }
 
   public get fullType(): string {

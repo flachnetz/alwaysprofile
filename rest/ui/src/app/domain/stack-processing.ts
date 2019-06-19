@@ -1,4 +1,5 @@
 import {Stack} from './stack';
+import {Method} from "./method";
 
 // processes a list of stacks into another list of stacks.
 export type StackProcessor = (stacks: Stack[]) => Stack[];
@@ -36,4 +37,46 @@ export function createMappingStackProcessor(fn: (stack: Stack) => Stack | null):
 export function collapseRecursiveCalls(): StackProcessor {
   return createMappingStackProcessor(stack =>
     new Stack([...new Set(stack.methods)], stack.duration));
+}
+
+/**
+ * Collapses recursive method calls
+ */
+export function collapseFrameworkCalls(prefixes: string[]): StackProcessor {
+  return createMappingStackProcessor(stack => {
+    const result: Method[] = [];
+
+    let previousWasCollpased = false;
+    for (const m of stack.methods) {
+      const canCollapse = prefixes.some(prefix => m.fqn.startsWith(prefix));
+      if (canCollapse && previousWasCollpased) {
+        continue;
+      }
+
+      result.push(m);
+
+      previousWasCollpased = canCollapse;
+    }
+
+    return new Stack(result, stack.duration);
+  });
+}
+
+/**
+ * Collapses recursive method calls
+ */
+export function collapseMethod(methods: Method[]): StackProcessor {
+  return createMappingStackProcessor(stack => {
+    const result: Method[] = [];
+
+    for (const m of stack.methods) {
+      result.push(m);
+
+      if (methods.includes(m)) {
+        break;
+      }
+    }
+
+    return new Stack(result, stack.duration);
+  });
 }
