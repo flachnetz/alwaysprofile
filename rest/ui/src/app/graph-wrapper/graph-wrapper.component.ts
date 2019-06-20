@@ -47,7 +47,7 @@ export class GraphWrapperComponent implements OnDestroy {
     //     if (graphConfig.collapseRecursiveCalls)
     //       processors.push(collapseRecursiveCalls());
     //
-    //     return GraphNode.fromStacks(stacks!, processors);
+    //     return FlameGraphNode.fromStacks(stacks!, processors);
     //   }),
     //
     //   takeUntil(this.lifecycle$));

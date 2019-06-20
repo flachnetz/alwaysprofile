@@ -6,9 +6,7 @@ import {AppState} from '../state/app-state';
 import {Duration} from '../domain/duration';
 import {Stack} from '../domain/stack';
 import {Logger} from "../utils/logger";
-import {FlatTreeControl} from "@angular/cdk/tree";
 import {Method} from "../domain/method";
-import {MatTreeFlatDataSource, MatTreeFlattener} from "@angular/material";
 
 const logger = Logger.get("CallTreeComponent");
 
@@ -21,26 +19,15 @@ export class CallTreeComponent {
   private transformer = (node: Call, level: number) => {
     return {
       call: node,
-      expandable: !!node.callers && node.callers.length > 0,
+      expandable: !!node.next && node.next.length > 0,
       level: level,
     };
   };
 
-  treeControl = new FlatTreeControl<FlatCall>(
-    node => node.level, node => node.expandable);
-
-  treeFlattener = new MatTreeFlattener(
-    this.transformer,
-    node => node.level,
-    node => node.expandable,
-    node => node.callers);
-
-  dataSource = new MatTreeFlatDataSource(this.treeControl, this.treeFlattener);
-
   constructor(
     private readonly store: Store<AppState>) {
 
-    this.store.select(stacksAsDataSource).subscribe(calls => this.dataSource.data = calls);
+    this.store.select(stacksAsDataSource).subscribe(calls => console.log(calls));
   }
 
   public paddingOf(node: FlatCall): string {
@@ -55,7 +42,7 @@ interface FlatCall {
 }
 
 const stacksAsDataSource = createSelector(fromStacks.selectStacks, stacks => {
-  const calls = logger.doTimed("Aggregate calls", () => calculateCalls(stacks.merged));
+  const calls = logger.doTimed("Aggregate calls", () => calculateCalls(stacks.all, true));
   return calls.slice(0, 64);
 });
 
@@ -64,7 +51,8 @@ class Call {
     readonly method: Method,
     readonly totalTime: Duration,
     readonly selfTime: Duration,
-    public callers: Call[] = []) {
+
+    public next: Call[] = []) {
   }
 
   public get selfTimeFraction(): number {
@@ -73,16 +61,17 @@ class Call {
 
   public copy(): Call {
     return new Call(this.method, this.totalTime, this.selfTime,
-      this.callers);
+      this.next);
   }
 }
 
 
-function calculateCalls(stacks: Stack[]): Call[] {
+function calculateCalls(stacks: Stack[], reverse: boolean): Call[] {
   interface MethodInfo {
     selfTimeMs: number;
     totalTimeMs: number;
-    parentOf: Set<Method>;
+    parents: Set<Method>;
+    children: Set<Method>
   }
 
   const methods = new Map<Method, MethodInfo>();
@@ -91,13 +80,17 @@ function calculateCalls(stacks: Stack[]): Call[] {
     stack.methods.forEach((method, idx) => {
       let info = methods.get(method);
       if (info == null) {
-        info = {selfTimeMs: 0, totalTimeMs: 0, parentOf: new Set()};
+        info = {selfTimeMs: 0, totalTimeMs: 0, parents: new Set(), children: new Set()};
         methods.set(method, info);
       }
 
-      if (idx > 0) {
-        info.parentOf.add(stack.methods[idx - 1]);
-      }
+      const child = stack.methods[idx + 1];
+      if (child != null)
+        info.parents.add(child);
+
+      const parent = stack.methods[idx - 1];
+      if (parent != null)
+        info.children.add(parent);
 
       info.totalTimeMs += stack.duration.millis
     });
@@ -113,15 +106,24 @@ function calculateCalls(stacks: Stack[]): Call[] {
     calls.set(method, call);
   });
 
-  calls.forEach(call => {
-    const parents = methods.get(call.method)!.parentOf;
-    call.callers = [...parents].map(parent => calls.get(parent)!);
-  });
+  if (reverse) {
+    calls.forEach(call => {
+      const parents = methods.get(call.method)!.parents;
+      call.next = [...parents].map(parent => calls.get(parent)!);
+    });
 
-  const key = (call: Call) => {
-    return call.callers.length
-  };
+    const key = (call: Call) => {
+      return call.next.length
+    };
 
-  // return [...calls.values()].sort((lhs, rhs) => rhs.selfTime.compareTo(lhs.selfTime));
-  return [...calls.values()].sort((lhs, rhs) => key(rhs) - key(lhs));
+    return [...calls.values()].sort((lhs, rhs) => key(rhs) - key(lhs));
+
+  } else {
+    calls.forEach(call => {
+      const children = methods.get(call.method)!.children;
+      call.next = [...children].map(parent => calls.get(parent)!);
+    });
+
+    return [...calls.values()].filter(call => methods.get(call.method)!.children.size === 0);
+  }
 }

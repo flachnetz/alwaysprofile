@@ -3,7 +3,7 @@ import {Method} from './method';
 import {Duration} from './duration';
 import {Logger} from "../utils/logger";
 
-const logger = Logger.get("GraphNode");
+const logger = Logger.get("FlameGraphNode");
 
 /**
  * Config to build a stack graph
@@ -16,19 +16,18 @@ export interface GraphConfig {
   collapseRuntimeCalls: boolean;
 }
 
-export type ColorHex = string;
-
 export class GraphNode {
-  public readonly color: ColorHex;
-  public readonly weight: number = this.value.millis;
+  public readonly children: this[];
 
   constructor(
     public readonly id: number,
     public readonly method: Method,
     public readonly value: Duration,
-    public readonly children: GraphNode[] = []) {
+    children: GraphNode[] = []) {
 
-    this.color = buildCssColor(method.toString());
+    // convert to this type.
+    // should be ok, would be nice if we could find a more type safe solution here.
+    this.children = children as this[];
   }
 
   public get title(): string {
@@ -43,11 +42,11 @@ export class GraphNode {
     return this.value.minus(this.childrenTime);
   }
 
-  public byId(id: number): GraphNode | null {
+  public byId(id: number): this | null {
     return this.find(node => node.id === id);
   }
 
-  public find(predicate: (node: GraphNode) => boolean): GraphNode | null {
+  public find(predicate: (node: this) => boolean): this | null {
     const path = this.pathTo(predicate);
     if (path != null)
       return path[path.length - 1];
@@ -55,7 +54,7 @@ export class GraphNode {
     return null;
   }
 
-  public pathTo(predicate: (node: GraphNode) => boolean): GraphNode[] | null {
+  public pathTo(predicate: (node: this) => boolean): this[] | null {
     if (predicate(this))
       return [this];
 
@@ -75,11 +74,19 @@ export class GraphNode {
   }
 }
 
+
+export type ColorHex = string;
+
+export class FlameGraphNode extends GraphNode {
+  public readonly color: ColorHex = buildCssColor(this.method.toString());
+  public readonly weight: number = this.value.millis;
+}
+
 let nextNodeId = 1;
 
-function graphNodeFromStacks(inputStacks: Stack[]): GraphNode {
-  function buildNodesInner(stacks: Stack[], level: number): GraphNode[] {
-    const nodes: GraphNode[] = [];
+function graphNodeFromStacks(inputStacks: Stack[]): FlameGraphNode {
+  function buildNodesInner(stacks: Stack[], level: number): FlameGraphNode[] {
+    const nodes: FlameGraphNode[] = [];
 
     let groupStart = 0;
     for (let idx = 0; idx < stacks.length; idx++) {
@@ -100,7 +107,7 @@ function graphNodeFromStacks(inputStacks: Stack[]): GraphNode {
       const children = buildNodesInner(childStacks, level + 1);
 
       const method = groupStacks[0].methods[level];
-      nodes.push(new GraphNode(nextNodeId++, method, groupTime, children));
+      nodes.push(new FlameGraphNode(nextNodeId++, method, groupTime, children));
     }
 
     // move the longest nodes to the front
@@ -114,7 +121,7 @@ function graphNodeFromStacks(inputStacks: Stack[]): GraphNode {
 
   // and create an extra root node containing those roots.
   const totalTime = roots.reduce((d, node) => node.value.plus(d), Duration.ZERO);
-  return new GraphNode(nextNodeId++, Method.ROOT, totalTime, roots);
+  return new FlameGraphNode(nextNodeId++, Method.ROOT, totalTime, roots);
 }
 
 function generateStringHashInt(inputString: string): number {
@@ -131,8 +138,8 @@ function generateStringHashFloat(inputString: string): number {
 }
 
 function buildCssColor(inputString: string, hue: string = "warm"): ColorHex {
-  // Return a color for the given name and library type. The library type
-  // selects the hue, and the name is hashed to a color in that hue.
+  // Return a color for the given name and library type. The
+  // input string is hashed to a color in that hue.
 
   // calculate hash
   const vector = generateStringHashFloat(inputString);
@@ -170,11 +177,11 @@ function buildCssColor(inputString: string, hue: string = "warm"): ColorHex {
     b = Math.round(55 * (1 - vector));
   }
 
-  return "#" + toColorHex(r) + toColorHex(g) + toColorHex(b) + "ff"
+  return "#" + byteToHex(r) + byteToHex(g) + byteToHex(b) + "ff"
 }
 
 const hex = ["00", "01", "02", "03", "04", "05", "06", "07", "08", "09", "0a", "0b", "0c", "0d", "0e", "0f", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "1a", "1b", "1c", "1d", "1e", "1f", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "2a", "2b", "2c", "2d", "2e", "2f", "30", "31", "32", "33", "34", "35", "36", "37", "38", "39", "3a", "3b", "3c", "3d", "3e", "3f", "40", "41", "42", "43", "44", "45", "46", "47", "48", "49", "4a", "4b", "4c", "4d", "4e", "4f", "50", "51", "52", "53", "54", "55", "56", "57", "58", "59", "5a", "5b", "5c", "5d", "5e", "5f", "60", "61", "62", "63", "64", "65", "66", "67", "68", "69", "6a", "6b", "6c", "6d", "6e", "6f", "70", "71", "72", "73", "74", "75", "76", "77", "78", "79", "7a", "7b", "7c", "7d", "7e", "7f", "80", "81", "82", "83", "84", "85", "86", "87", "88", "89", "8a", "8b", "8c", "8d", "8e", "8f", "90", "91", "92", "93", "94", "95", "96", "97", "98", "99", "9a", "9b", "9c", "9d", "9e", "9f", "a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a9", "aa", "ab", "ac", "ad", "ae", "af", "b0", "b1", "b2", "b3", "b4", "b5", "b6", "b7", "b8", "b9", "ba", "bb", "bc", "bd", "be", "bf", "c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9", "ca", "cb", "cc", "cd", "ce", "cf", "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "da", "db", "dc", "dd", "de", "df", "e0", "e1", "e2", "e3", "e4", "e5", "e6", "e7", "e8", "e9", "ea", "eb", "ec", "ed", "ee", "ef", "f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "fa", "fb", "fc", "fd", "fe", "ff"];
 
-function toColorHex(value: number) {
+function byteToHex(value: number) {
   return hex[value | 0] || "00";
 }

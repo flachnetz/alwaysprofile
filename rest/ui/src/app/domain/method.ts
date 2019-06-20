@@ -6,7 +6,7 @@ let nextMethodId: number = 1;
 export class Method {
   public readonly id = nextMethodId++;
 
-  constructor(
+  private constructor(
     // unique method key
     public readonly fqn: string,
     // method module or package
@@ -15,11 +15,22 @@ export class Method {
     public readonly type: string,
     // the method name.
     public readonly name: string) {
-
-    if (methodCache[fqn] != null) {
-      throw new Error("duplicate method instance created");
-    }
   }
+
+  public static get(fqn: string, module: string, type: string, name: string): Method {
+    const cached = methodCache[fqn];
+    if (cached != null)
+      return cached;
+
+    const method = new Method(fqn, module, type, name);
+    methodCache[fqn] = method;
+    return method;
+  }
+
+  public static lookup(fqn: string): Method | null {
+    return methodCache[fqn];
+  }
+
 
   public get fullType(): string {
     return this.module + '.' + this.type;
@@ -66,18 +77,18 @@ export function parseGoMethod(fqn: string): Method {
     const parts = method.split('.', 3);
 
     if (parts.length === 1) {
-      return new Method(method, 'runtime', '<root>', method);
+      return Method.get(method, 'runtime', '<root>', method);
     }
 
     if (parts.length === 2) {
       const [module, name] = parts;
-      return new Method(method, module, '<root>', name);
+      return Method.get(method, module, '<root>', name);
     }
 
     // module.name.func2.*
     if (/^func[0-9]+$/.test(parts[2])) {
       const [module, name] = parts;
-      return new Method(method, module, '<root>', name);
+      return Method.get(method, module, '<root>', name);
     }
 
     let [module, type, name] = parts;
@@ -85,16 +96,9 @@ export function parseGoMethod(fqn: string): Method {
       type = type.slice(2, type.length - 1);
     }
 
-    return new Method(method, module, type, name);
+    return Method.get(method, module, type, name);
   }
 
-  // check in cache first
-  const cached = methodCache[fqn];
-  if (cached != null)
-    return cached;
-
-  // parse the fully qualified name
-  const parsed = parse(fqn);
-  methodCache[fqn] = parsed;
-  return parsed;
+  // get the method from the cache or parse it, if necessary
+  return Method.lookup(fqn) || parse(fqn);
 }

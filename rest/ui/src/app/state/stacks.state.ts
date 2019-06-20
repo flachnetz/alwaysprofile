@@ -45,7 +45,7 @@ export interface StacksState {
 
 const initialState: StacksState = {
   serviceId: null,
-  stacks: new Stacks({}),
+  stacks: new Stacks(),
   loading: false,
   histogram: null,
 };
@@ -56,7 +56,7 @@ export function stacksReducer(state = initialState, action: StacksActions): Stac
       return {
         ...state,
         loading: true,
-        stacks: new Stacks({}),
+        stacks: new Stacks(),
         serviceId: action.serviceId,
         histogram: null,
       };

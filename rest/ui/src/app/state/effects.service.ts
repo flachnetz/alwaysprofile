@@ -31,7 +31,7 @@ export class Effects {
     ofType(StacksActionTypes.LoadStacks),
     switchMap((action: LoadStacks) => {
       return from(this.apiService.fetchStacks(action.serviceId)).pipe(
-        map(stacks => new UpdateStacks(action.serviceId, new Stacks({default: stacks}))),
+        map(stacks => new UpdateStacks(action.serviceId, new Stacks(stacks))),
         startWith(UpdateServices.forOne(action.serviceId)),
         catchError(() => EMPTY));
     }));

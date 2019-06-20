@@ -25,18 +25,16 @@ export class Stack {
   }
 }
 
-export type StacksMap = { [instanceId: string]: Stack[] };
-
 export class Stacks {
-  constructor(readonly byInstance: StacksMap) {
+  constructor(readonly all: Stack[] = []) {
   }
 
-  public get merged(): Stack[] {
-    const stacks = Object.values(this.byInstance);
-    if (stacks.length === 1)
-      return stacks[0];
+  public get totalTime(): Duration {
+    let sum = 0;
+    for (const stack of this.all)
+      sum += stack.duration.millis;
 
-    return mergeStacks(...stacks);
+    return Duration.ofMillis(sum);
   }
 }
 

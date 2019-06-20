@@ -38,7 +38,7 @@ export class CallsTableComponent {
 
 const stacksAsDataSource = createSelector(
   fromStacks.selectStacks,
-  stacks => logger.doTimed("Aggregate calls", () => calculateCalls(stacks.merged)));
+  stacks => logger.doTimed("Aggregate calls", () => calculateCalls(stacks.all)));
 
 interface ICall {
   name: string;

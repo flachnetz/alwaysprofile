@@ -1,6 +1,6 @@
 import {AfterViewInit, Component, ElementRef, HostListener, Input, NgZone, ViewChild} from '@angular/core';
 import {BehaviorSubject} from 'rxjs';
-import {ColorHex, GraphNode} from './domain/graph-node';
+import {ColorHex, FlameGraphNode} from './domain/graph-node';
 import {distinctUntilChanged} from "rxjs/operators";
 import {deepEqual} from "./utils/deep-equal";
 import {Logger} from "./utils/logger";
@@ -29,7 +29,7 @@ export class FlameGraphComponent implements AfterViewInit {
   public readonly tooltip!: ElementRef;
 
   @Input()
-  public readonly flameGraph!: GraphNode;
+  public readonly flameGraph!: FlameGraphNode;
 
   public readonly tooltipContent$ = this._tooltipContent$.pipe(distinctUntilChanged(deepEqual));
 
@@ -112,7 +112,7 @@ export class FlameGraphComponent implements AfterViewInit {
     this.ngZone.run(() => this._tooltipContent$.next({node}));
   }
 
-  private nodeFromEvent(event: MouseEvent): GraphNode | null {
+  private nodeFromEvent(event: MouseEvent): FlameGraphNode | null {
     const target = event.target && event.target as HTMLElement;
     if (target !== this.flameCanvas.nativeElement)
       return null;
@@ -135,7 +135,7 @@ export class FlameGraphComponent implements AfterViewInit {
 }
 
 interface RenderParameters {
-  hoverNode?: GraphNode;
+  hoverNode?: FlameGraphNode;
 }
 
 class Renderer {
@@ -267,9 +267,9 @@ class Renderer {
 }
 
 class Layouter {
-  public layouts = new Map<GraphNode, NodeLayout>();
+  public layouts = new Map<FlameGraphNode, NodeLayout>();
 
-  constructor(private readonly root: GraphNode) {
+  constructor(private readonly root: FlameGraphNode) {
   }
 
   public update(state: LayoutState) {
@@ -295,7 +295,7 @@ class Layouter {
 }
 
 interface NodeLayout {
-  node: GraphNode;
+  node: FlameGraphNode;
   nodeSize: number;
   nodeOffset: number;
   level: number;
@@ -307,16 +307,16 @@ interface NodeLayout {
 }
 
 interface LayoutState {
-  selected?: GraphNode;
+  selected?: FlameGraphNode;
 }
 
 interface InternalLayoutState extends LayoutState {
-  previous: ReadonlyMap<GraphNode, NodeLayout>;
-  expanded?: GraphNode[];
+  previous: ReadonlyMap<FlameGraphNode, NodeLayout>;
+  expanded?: FlameGraphNode[];
   expandedIds?: number[];
 }
 
-function doLayout(state: InternalLayoutState, root: GraphNode): Map<GraphNode, NodeLayout> {
+function doLayout(state: InternalLayoutState, root: FlameGraphNode): Map<FlameGraphNode, NodeLayout> {
   const layouts: NodeLayout[] = [{node: root, level: 0, nodeOffset: 0, nodeSize: 1, expanded: !!state.expanded}];
   const previous = state.previous;
 
@@ -372,13 +372,13 @@ function doLayout(state: InternalLayoutState, root: GraphNode): Map<GraphNode, N
     }
   }
 
-  const result = new Map<GraphNode, NodeLayout>();
+  const result = new Map<FlameGraphNode, NodeLayout>();
   layouts.forEach(layout => result.set(layout.node, layout));
   return result;
 }
 
 interface TooltipContent {
-  node: GraphNode;
+  node: FlameGraphNode;
 }
 
 
