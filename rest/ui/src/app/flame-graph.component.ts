@@ -19,13 +19,13 @@ export class FlameGraphComponent implements AfterViewInit {
   private readonly layoutState$ = new BehaviorSubject<LayoutState>({});
   private readonly _tooltipContent$ = new BehaviorSubject<TooltipContent | null>(null);
 
-  @ViewChild('flameContainer')
+  @ViewChild('flameContainer', { static: true })
   public readonly flameContainer!: ElementRef;
 
-  @ViewChild('flameCanvas')
+  @ViewChild('flameCanvas', { static: true })
   public readonly flameCanvas!: ElementRef<HTMLCanvasElement>;
 
-  @ViewChild("tooltip")
+  @ViewChild("tooltip", { static: true })
   public readonly tooltip!: ElementRef;
 
   @Input()

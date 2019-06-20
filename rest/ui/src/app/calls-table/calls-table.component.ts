@@ -22,7 +22,7 @@ export class CallsTableComponent {
 
   public readonly dataSource$ = this.store.select(stacksAsDataSource).pipe(map(calls => this.createDataSource(calls)));
 
-  @ViewChild("paginator")
+  @ViewChild("paginator", { static: true })
   public paginator!: MatPaginator;
 
   constructor(
