@@ -16,77 +16,106 @@ export interface GraphConfig {
   collapseRuntimeCalls: boolean;
 }
 
-export class GraphNode {
-  public readonly children: this[];
+interface Node<T extends Node<T>> {
+  readonly id: number;
+  readonly method: Method;
+  readonly duration: Duration;
+}
 
+interface TreeNode<T extends Node<T>> extends Node<T> {
+  readonly children: readonly TreeNode<T>[];
+  readonly parent: TreeNode<T>;
+}
+
+interface GraphNode<T extends Node<T>> extends Node<T> {
+  readonly children: readonly GraphNode<T>[];
+  readonly parents: readonly GraphNode<T>[];
+}
+
+class NodeImpl implements Node<NodeImpl> {
   constructor(
     public readonly id: number,
     public readonly method: Method,
-    public readonly value: Duration,
-    children: GraphNode[] = []) {
-
-    // convert to this type.
-    // should be ok, would be nice if we could find a more type safe solution here.
-    this.children = children as this[];
+    public readonly duration: Duration) {
   }
 
   public get title(): string {
     return this.method.toString();
   }
 
-  public get childrenTime(): Duration {
-    return this.children.reduce((acc, child) => acc.plus(child.value), Duration.ZERO);
-  }
+  // public get childrenTime(): Duration {
+  //   return this.children.reduce((acc, child) => acc.plus(child.duration), Duration.ZERO);
+  // }
 
-  public get selfTime(): Duration {
-    return this.value.minus(this.childrenTime);
-  }
+  // public get selfTime(): Duration {
+  //   return this.duration.minus(this.childrenTime);
+  // }
 
-  public byId(id: number): this | null {
-    return this.find(node => node.id === id);
-  }
+  // public byId(id: number): this | null {
+  //   return this.find(node => node.id === id);
+  // }
+  //
+  // public find(predicate: (node: this) => boolean): this | null {
+  //   const path = this.pathTo(predicate);
+  //   if (path != null)
+  //     return path[path.length - 1];
+  //
+  //   return null;
+  // }
+  //
+  // public pathTo(predicate: (node: this) => boolean): this[] | null {
+  //   if (predicate(this))
+  //     return [this];
+  //
+  //   for (const child of this.children) {
+  //     const path = child.pathTo(predicate);
+  //     if (path != null) {
+  //       path.unshift(this);
+  //       return path;
+  //     }
+  //   }
+  //
+  //   return null;
+  // }
 
-  public find(predicate: (node: this) => boolean): this | null {
-    const path = this.pathTo(predicate);
-    if (path != null)
-      return path[path.length - 1];
-
-    return null;
-  }
-
-  public pathTo(predicate: (node: this) => boolean): this[] | null {
-    if (predicate(this))
-      return [this];
-
-    for (const child of this.children) {
-      const path = child.pathTo(predicate);
-      if (path != null) {
-        path.unshift(this);
-        return path;
-      }
-    }
-
-    return null;
-  }
-
-  static fromStacks(stacks: Stack[]): GraphNode {
+  static fromStacks(stacks: Stack[]): NodeImpl {
     return logger.doTimed(`Node.fromStacks(${stacks.length})`, () => graphNodeFromStacks(stacks));
   }
 }
 
+class MutableTreeNode<E extends TreeNode<E>> extends NodeImpl implements TreeNode<E> {
+  children: TreeNode<E>[] = [];
+
+  constructor(id: number, method: Method, duration: Duration, public parent: TreeNode<E>) {
+    super(id, method, duration);
+  };
+}
 
 export type ColorHex = string;
 
-export class FlameGraphNode extends GraphNode {
+export class FlameGraphNode extends NodeImpl {
   public readonly color: ColorHex = buildCssColor(this.method.toString());
-  public readonly weight: number = this.value.millis;
+  public readonly weight: number = this.duration.millis;
+}
+
+export function toFlameGraphNode(node: NodeImpl): FlameGraphNode {
+  function convert(node: NodeImpl, children: FlameGraphNode[]): FlameGraphNode {
+    return new FlameGraphNode(node.id, node.method, node.duration, children);
+  }
+
+  return mapGraphNode(node, convert);
+}
+
+export function mapGraphNode<T extends NodeImpl>(node: NodeImpl, mapper: (node: NodeImpl, children: T[]) => T): T {
+  const children = node.children.map(n => mapGraphNode(n, mapper));
+  return mapper(node, children);
 }
 
 let nextNodeId = 1;
 
-function graphNodeFromStacks(inputStacks: Stack[]): FlameGraphNode {
-  function buildNodesInner(stacks: Stack[], level: number): FlameGraphNode[] {
-    const nodes: FlameGraphNode[] = [];
+function graphNodeFromStacks(inputStacks: Stack[]): NodeImpl {
+  function buildNodesInner(stacks: Stack[], level: number): NodeImpl[] {
+    const nodes: NodeImpl[] = [];
 
     let groupStart = 0;
     for (let idx = 0; idx < stacks.length; idx++) {
@@ -107,11 +136,11 @@ function graphNodeFromStacks(inputStacks: Stack[]): FlameGraphNode {
       const children = buildNodesInner(childStacks, level + 1);
 
       const method = groupStacks[0].methods[level];
-      nodes.push(new FlameGraphNode(nextNodeId++, method, groupTime, children));
+      nodes.push(new NodeImpl(nextNodeId++, method, groupTime, children));
     }
 
     // move the longest nodes to the front
-    nodes.sort((lhs, rhs) => rhs.value.millis - lhs.value.millis);
+    nodes.sort((lhs, rhs) => rhs.duration.millis - lhs.duration.millis);
 
     return nodes;
   }
@@ -120,8 +149,8 @@ function graphNodeFromStacks(inputStacks: Stack[]): FlameGraphNode {
   const roots = buildNodesInner(mergeStacks(inputStacks), 0);
 
   // and create an extra root node containing those roots.
-  const totalTime = roots.reduce((d, node) => node.value.plus(d), Duration.ZERO);
-  return new FlameGraphNode(nextNodeId++, Method.ROOT, totalTime, roots);
+  const totalTime = roots.reduce((d, node) => node.duration.plus(d), Duration.ZERO);
+  return new NodeImpl(nextNodeId++, Method.ROOT, totalTime, roots);
 }
 
 function generateStringHashInt(inputString: string): number {
