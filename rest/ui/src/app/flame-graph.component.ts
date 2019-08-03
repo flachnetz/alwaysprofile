@@ -4,6 +4,7 @@ import {ColorHex, FlameGraphNode} from './domain/graph-node';
 import {distinctUntilChanged} from "rxjs/operators";
 import {deepEqual} from "./utils/deep-equal";
 import {Logger} from "./utils/logger";
+import {Duration} from "./domain/duration";
 
 const logger = Logger.get("FlameGraphComponent");
 
@@ -19,13 +20,13 @@ export class FlameGraphComponent implements AfterViewInit {
   private readonly layoutState$ = new BehaviorSubject<LayoutState>({});
   private readonly _tooltipContent$ = new BehaviorSubject<TooltipContent | null>(null);
 
-  @ViewChild('flameContainer', { static: true })
+  @ViewChild('flameContainer', {static: true})
   public readonly flameContainer!: ElementRef;
 
-  @ViewChild('flameCanvas', { static: true })
+  @ViewChild('flameCanvas', {static: true})
   public readonly flameCanvas!: ElementRef<HTMLCanvasElement>;
 
-  @ViewChild("tooltip", { static: true })
+  @ViewChild("tooltip", {static: true})
   public readonly tooltip!: ElementRef;
 
   @Input()
@@ -131,6 +132,11 @@ export class FlameGraphComponent implements AfterViewInit {
     }
 
     return null;
+  }
+
+  selfTimeOf(node: FlameGraphNode) {
+    const childrenTime = node.children.reduce((acc, child) => acc.plus(child.payload.duration), Duration.ZERO);
+    return node.payload.duration.minus(childrenTime);
   }
 }
 
@@ -239,10 +245,10 @@ class Renderer {
         const y = layout.level * 16;
         const height = 15;
 
-        ctx.fillStyle = layout.node.color;
+        ctx.fillStyle = layout.node.payload.color;
 
         if (layout.expanded) {
-          ctx.fillStyle = colorWithAlpha(layout.node.color);
+          ctx.fillStyle = colorWithAlpha(layout.node.payload.color);
         }
 
         if (this.params.hoverNode === layout.node) {
@@ -335,7 +341,7 @@ function doLayout(state: InternalLayoutState, root: FlameGraphNode): Map<FlameGr
     let childOffset = layout.nodeOffset;
 
     // scale of children time to seconds
-    const childScale = layout.nodeSize / node.weight;
+    const childScale = layout.nodeSize / node.payload.duration.millis;
 
     for (const child of node.children) {
       let childSize: number = 0;
@@ -347,7 +353,7 @@ function doLayout(state: InternalLayoutState, root: FlameGraphNode): Map<FlameGr
           childIsExpanded = true;
         }
       } else {
-        childSize = child.weight * childScale;
+        childSize = child.payload.duration.millis * childScale;
       }
 
       const childLayout: NodeLayout = {

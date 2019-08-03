@@ -7,7 +7,7 @@ export class Method {
   public readonly id = nextMethodId++;
 
   private constructor(
-    // unique method key
+    // unique method key.
     public readonly fqn: string,
     // method module or package
     public readonly module: string,

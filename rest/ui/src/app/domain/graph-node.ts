@@ -16,83 +16,72 @@ export interface GraphConfig {
   collapseRuntimeCalls: boolean;
 }
 
-interface Node<T extends Node<T>> {
-  readonly id: number;
-  readonly method: Method;
-  readonly duration: Duration;
-}
+class Node<T> {
+  public parents: Node<T>[] = [];
+  public children: Node<T>[] = [];
 
-interface TreeNode<T extends Node<T>> extends Node<T> {
-  readonly children: readonly TreeNode<T>[];
-  readonly parent: TreeNode<T>;
-}
-
-interface GraphNode<T extends Node<T>> extends Node<T> {
-  readonly children: readonly GraphNode<T>[];
-  readonly parents: readonly GraphNode<T>[];
-}
-
-class NodeImpl implements Node<NodeImpl> {
   constructor(
     public readonly id: number,
     public readonly method: Method,
-    public readonly duration: Duration) {
+    public payload: T) {
+  }
+
+  addChild(node: Node<T>): void {
+    this.children.push(node);
+    node.parents.push(this);
   }
 
   public get title(): string {
     return this.method.toString();
   }
 
-  // public get childrenTime(): Duration {
-  //   return this.children.reduce((acc, child) => acc.plus(child.duration), Duration.ZERO);
-  // }
+  public byId(id: number): Node<T> | null {
+    return this.find(node => node.id === id);
+  }
 
-  // public get selfTime(): Duration {
-  //   return this.duration.minus(this.childrenTime);
-  // }
+  public find(predicate: (node: Node<T>) => boolean): Node<T> | null {
+    const path = this.pathTo(predicate);
+    if (path != null)
+      return path[path.length - 1];
 
-  // public byId(id: number): this | null {
-  //   return this.find(node => node.id === id);
-  // }
-  //
-  // public find(predicate: (node: this) => boolean): this | null {
-  //   const path = this.pathTo(predicate);
-  //   if (path != null)
-  //     return path[path.length - 1];
-  //
-  //   return null;
-  // }
-  //
-  // public pathTo(predicate: (node: this) => boolean): this[] | null {
-  //   if (predicate(this))
-  //     return [this];
-  //
-  //   for (const child of this.children) {
-  //     const path = child.pathTo(predicate);
-  //     if (path != null) {
-  //       path.unshift(this);
-  //       return path;
-  //     }
-  //   }
-  //
-  //   return null;
-  // }
+    return null;
+  }
 
-  static fromStacks(stacks: Stack[]): NodeImpl {
-    return logger.doTimed(`Node.fromStacks(${stacks.length})`, () => graphNodeFromStacks(stacks));
+  public pathTo(predicate: (node: Node<T>) => boolean): Node<T>[] | null {
+    if (predicate(this))
+      return [this];
+
+    for (const child of this.children) {
+      const path = child.pathTo(predicate);
+      if (path != null) {
+        path.unshift(this);
+        return path;
+      }
+    }
+
+    return null;
+  }
+
+  public equalTo(other: Node<T>) {
+    return this === other;
   }
 }
 
-class MutableTreeNode<E extends TreeNode<E>> extends NodeImpl implements TreeNode<E> {
-  children: TreeNode<E>[] = [];
-
-  constructor(id: number, method: Method, duration: Duration, public parent: TreeNode<E>) {
-    super(id, method, duration);
-  };
+export function fromStacks(stacks: Stack[]): FlameGraphNode {
+  return logger.doTimed(`Node.fromStacks(${stacks.length})`,
+    () => graphNodeFromStacks(stacks));
 }
 
 export type ColorHex = string;
 
+export interface FlameGraphPayload {
+  readonly color: ColorHex;
+  readonly duration: Duration;
+}
+
+export type FlameGraphNode = Node<FlameGraphPayload>;
+
+/*
 export class FlameGraphNode extends NodeImpl {
   public readonly color: ColorHex = buildCssColor(this.method.toString());
   public readonly weight: number = this.duration.millis;
@@ -110,12 +99,13 @@ export function mapGraphNode<T extends NodeImpl>(node: NodeImpl, mapper: (node: 
   const children = node.children.map(n => mapGraphNode(n, mapper));
   return mapper(node, children);
 }
+*/
 
 let nextNodeId = 1;
 
-function graphNodeFromStacks(inputStacks: Stack[]): NodeImpl {
-  function buildNodesInner(stacks: Stack[], level: number): NodeImpl[] {
-    const nodes: NodeImpl[] = [];
+function graphNodeFromStacks(inputStacks: Stack[]): Node<FlameGraphPayload> {
+  function buildNodesInner(stacks: Stack[], level: number): Node<FlameGraphPayload>[] {
+    const nodes: Node<FlameGraphPayload>[] = [];
 
     let groupStart = 0;
     for (let idx = 0; idx < stacks.length; idx++) {
@@ -136,11 +126,18 @@ function graphNodeFromStacks(inputStacks: Stack[]): NodeImpl {
       const children = buildNodesInner(childStacks, level + 1);
 
       const method = groupStacks[0].methods[level];
-      nodes.push(new NodeImpl(nextNodeId++, method, groupTime, children));
+      const payload: FlameGraphPayload = {
+        color: buildCssColor(method.fqn),
+        duration: groupTime,
+      };
+
+      const node = new Node(nextNodeId++, method, payload);
+      children.forEach(child => node.addChild(child));
+      nodes.push(node);
     }
 
     // move the longest nodes to the front
-    nodes.sort((lhs, rhs) => rhs.duration.millis - lhs.duration.millis);
+    nodes.sort((lhs, rhs) => rhs.payload.duration.millis - lhs.payload.duration.millis);
 
     return nodes;
   }
@@ -149,8 +146,14 @@ function graphNodeFromStacks(inputStacks: Stack[]): NodeImpl {
   const roots = buildNodesInner(mergeStacks(inputStacks), 0);
 
   // and create an extra root node containing those roots.
-  const totalTime = roots.reduce((d, node) => node.duration.plus(d), Duration.ZERO);
-  return new NodeImpl(nextNodeId++, Method.ROOT, totalTime, roots);
+  const totalTime = roots.reduce((d, node) => node.payload.duration.plus(d), Duration.ZERO);
+  const root = new Node(nextNodeId++, Method.ROOT, <FlameGraphPayload>{
+    color: buildCssColor("root"),
+    duration: totalTime,
+  });
+
+  roots.forEach(node => root.addChild(node));
+  return root;
 }
 
 function generateStringHashInt(inputString: string): number {

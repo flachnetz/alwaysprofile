@@ -6,7 +6,6 @@ import {AppState} from '../state/app-state';
 
 import * as fromStacks from "../state/stacks.selectors"
 import {map} from "rxjs/operators";
-import {toFlameGraphNode} from "../domain/graph-node";
 
 @Component({
   selector: 'GraphWrapper',
@@ -16,7 +15,7 @@ import {toFlameGraphNode} from "../domain/graph-node";
 export class GraphWrapperComponent implements OnDestroy {
   private readonly lifecycle$ = new ReplaySubject();
 
-  public readonly flameGraph$ = this.store.select(fromStacks.selectNodes).pipe(map(toFlameGraphNode));
+  public readonly flameGraph$ = this.store.select(fromStacks.selectNodes);
 
   constructor(
     private readonly store: Store<AppState>,

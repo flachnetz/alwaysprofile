@@ -5,7 +5,7 @@
     <div #tooltip class="tooltip mat-tooltip">
       <ng-container *ngIf="tooltipContent$|async as tooltipContent">
         <div>{{ tooltipContent.node.title }}</div>
-        <div>total: {{ tooltipContent.node.value }}, self: {{ tooltipContent.node.selfTime }}</div>
+        <div>total: {{ tooltipContent.node.payload.duration }}, self: {{ selfTimeOf(tooltipContent.node) }}</div>
       </ng-container>
     </div>
   </div>

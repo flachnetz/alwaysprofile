@@ -1,7 +1,6 @@
 import {Method} from "./method";
 import {Duration} from "./duration";
 import {Stack} from "./stack";
-import {MutableNode} from "./graph-node";
 
 export class Call {
   constructor(

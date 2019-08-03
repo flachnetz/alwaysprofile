@@ -1,10 +1,10 @@
 import {createFeatureSelector, createSelector} from '@ngrx/store';
 import {AppState} from './app-state';
 import {StacksState} from './stacks.state';
-import {FlameGraphNode} from '../domain/graph-node';
 import {collapseFrameworkCalls, collapseMethod, inSequence} from "../domain/stack-processing";
 import {parseGoMethod} from "../domain/method";
 import {Logger} from "../utils/logger";
+import {fromStacks} from "../domain/graph-node";
 
 const log = Logger.get("Stacks");
 
@@ -28,7 +28,7 @@ export const selectNodes = createSelector(
     const processed = log.doTimed("Apply stack processors",
       () => processor(stacks.all));
 
-    return FlameGraphNode.fromStacks(processed)
+    return fromStacks(processed)
   });
 
 export const selectHistogram = createSelector(
